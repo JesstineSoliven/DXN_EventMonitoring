@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Participant Monitoring Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            base:    '#F0F2F5',
+            surface: '#E8EBF0',
+            card:    '#FFFFFF',
+            border:  '#E2E6ED',
+            muted:   '#8B95A6',
+            text:    '#3D4A5C',
+            heading: '#111827',
+            accent:  '#2563EB',
+          },
+          fontFamily: {
+            body: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['DM Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { background-color: #F0F2F5; font-family: 'Inter', system-ui, sans-serif; color: #3D4A5C; }
+
+    .card-shadow   { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); }
+    .card-shadow-md{ box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes status-blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    @keyframes spin-slow { to { transform: rotate(360deg); } }
+
+    .fade-up { animation: fadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+    .delay-1 { animation-delay: 0.04s; }
+    .delay-2 { animation-delay: 0.08s; }
+    .delay-3 { animation-delay: 0.12s; }
+    .delay-4 { animation-delay: 0.16s; }
+    .delay-5 { animation-delay: 0.20s; }
+    .delay-6 { animation-delay: 0.24s; }
+
+    .stat-number {
+      font-family: 'DM Mono', 'Inter', monospace;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: #111827;
+    }
+
+    .bar-track { background: #F1F5F9; border-radius: 99px; height: 6px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 99px; transition: width 0.8s cubic-bezier(0.22,1,0.36,1); }
+
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(0,0,0,0.08);
+      border-top-color: #2563EB;
+      border-radius: 50%;
+      animation: spin-slow 0.8s linear infinite;
+    }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 99px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #F0F2F5; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+
+    .chart-wrap { position: relative; width: 100%; }
+
+    /* ── RAFFLE ── */
+    .tab-btn {
+      padding: 8px 18px; font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
+      border: none; border-bottom: 2px solid transparent; background: transparent;
+      cursor: pointer; color: #8B95A6;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn.active { color: #2563EB; border-bottom-color: #2563EB; }
+    .tab-btn:hover:not(.active) { color: #3D4A5C; }
+
+    @keyframes winnerReveal {
+      from { opacity: 0; transform: scale(0.88); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes trophyBounce {
+      0%,100% { transform: translateY(0); }
+      40%      { transform: translateY(-8px); }
+    }
+    .winner-card { animation: winnerReveal 0.4s cubic-bezier(0.22,1,0.36,1) both; }
+    .trophy-icon { animation: trophyBounce 1.2s ease-in-out 0.4s infinite; }
+
+    #wheelCanvas {
+      display: block;
+      max-width: min(440px, 88vw);
+      height: auto;
+      border-radius: 50%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.14), 0 3px 10px rgba(0,0,0,0.08);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-text bg-base">
+
+  <!-- ── HEADER ── -->
+  <header style="background:#FFFFFF;border-bottom:1px solid #E2E6ED;position:sticky;top:0;z-index:50;">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between" style="height:60px;">
+      <div class="flex items-center gap-3">
+        <div style="width:36px;height:36px;background:linear-gradient(135deg,#2563EB,#1D4ED8);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#FFFFFF" stroke-width="2.5">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div>
+          <h1 style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.0625rem;color:#111827;letter-spacing:-0.01em;">Participant Monitor</h1>
+          <p style="font-size:11px;color:#8B95A6;margin-top:1px;">Live event insights dashboard</p>
+        </div>
+      </div>
+      <!-- ── PAGE TABS ── -->
+      <nav style="display:flex;align-items:stretch;gap:2px;height:100%;">
+        <button class="tab-btn active" id="tabDashboard" onclick="showPage('dashboard')">Dashboard</button>
+        <button class="tab-btn" id="tabRaffle" onclick="showPage('raffle')">Raffle</button>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div id="statusBadge" class="badge" style="background:#F0FDF4;color:#16A34A;border:1px solid #BBF7D0;">
+          <span id="statusDot" style="width:6px;height:6px;border-radius:50%;background:#16A34A;animation:status-blink 3s ease-in-out infinite;display:inline-block;"></span>
+          <span id="statusText">Loading…</span>
+        </div>
+        <button onclick="loadData()" id="refreshBtn"
+          style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:#F8FAFC;border:1px solid #E2E6ED;border-radius:8px;color:#3D4A5C;font-size:13px;cursor:pointer;transition:background 0.15s,border-color 0.15s;"
+          onmouseover="this.style.background='#F1F5F9';this.style.borderColor='#CBD5E1'"
+          onmouseout="this.style.background='#F8FAFC';this.style.borderColor='#E2E6ED'">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh
+        </button>
+        <div id="lastUpdated" style="font-size:11px;color:#8B95A6;"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── MAIN ── -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+    <!-- Loading state -->
+    <div id="loadingState" class="flex flex-col items-center justify-center py-32 gap-4">
+      <div class="loading-spinner"></div>
+      <p style="color:#8B95A6;font-size:14px;">Fetching participant data…</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="errorState" class="hidden flex flex-col items-center justify-center py-32 gap-4">
+      <div style="width:56px;height:56px;background:#FEF2F2;border-radius:16px;display:flex;align-items:center;justify-content:center;">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#DC2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div style="text-align:center;">
+        <p style="color:#111827;font-weight:600;margin-bottom:4px;">Could not load data</p>
+        <p id="errorMsg" style="color:#8B95A6;font-size:13px;max-width:400px;line-height:1.6;">Make sure the Google Sheet is set to <strong style="color:#D97706;">Anyone with the link can view</strong>, then click Refresh.</p>
+      </div>
+      <button onclick="loadData()" style="padding:8px 20px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;color:#2563EB;font-size:13px;cursor:pointer;">Try again</button>
+    </div>
+
+    <!-- Dashboard content -->
+    <div id="dashboard" class="hidden">
+
+      <!-- ── FILTER BAR ── -->
+      <div class="flex items-center gap-3 mb-6 flex-wrap">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8B95A6" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          <span style="font-size:13px;font-weight:500;color:#3D4A5C;">Filter by Location</span>
+        </div>
+        <select id="locationFilter" onchange="applyLocationFilter()"
+          style="padding:7px 32px 7px 12px;background:#FFFFFF;border:1px solid #E2E6ED;border-radius:8px;color:#3D4A5C;font-size:13px;font-family:'Inter',sans-serif;outline:none;cursor:pointer;appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 24 24' stroke='%238B95A6' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 10px center;box-shadow:0 1px 2px rgba(0,0,0,0.04);transition:border-color 0.15s,box-shadow 0.15s;"
+          onfocus="this.style.borderColor='#2563EB';this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.12)'"
+          onblur="this.style.borderColor='#E2E6ED';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
+          <option value="">All Locations</option>
+        </select>
+        <span id="filterCount" style="font-size:12px;color:#8B95A6;"></span>
+      </div>
+
+      <!-- ── KPI ROW ── -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+        <div id="kpi0" class="fade-up delay-1 p-5" style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #2563EB;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <span style="font-size:11px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Total Registrations</span>
+            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+          </div>
+          <div class="stat-number" id="kpiTotal">—</div>
+          <div style="margin-top:6px;font-size:12px;color:#8B95A6;">participants registered</div>
+        </div>
+
+        <div id="kpi1" class="fade-up delay-2 p-5" style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #7C3AED;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <span style="font-size:11px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Participant Types</span>
+            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </div>
+          </div>
+          <div class="stat-number" id="kpiTypes">—</div>
+          <div style="margin-top:6px;font-size:12px;color:#8B95A6;">unique categories</div>
+        </div>
+
+        <div id="kpi2" class="fade-up delay-3 p-5" style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #0891B2;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <span style="font-size:11px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Topics Requested</span>
+            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </div>
+          </div>
+          <div class="stat-number" id="kpiTopics">—</div>
+          <div style="margin-top:6px;font-size:12px;color:#8B95A6;">unique topic interests</div>
+        </div>
+
+        <div id="kpi3" class="fade-up delay-4 p-5" style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #059669;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <span style="font-size:11px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Discovery Sources</span>
+            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+          </div>
+          <div class="stat-number" id="kpiSources">—</div>
+          <div style="margin-top:6px;font-size:12px;color:#8B95A6;">referral channels</div>
+        </div>
+
+      </div>
+
+      <!-- ── ROW 2: Type + Discovery ── -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+        <!-- Participant Types -->
+        <div class="fade-up delay-2 rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;">
+          <div style="display:flex;align-items:center;margin-bottom:20px;">
+            <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">Type of Participants</h2>
+            <span style="margin-left:auto;font-size:11px;color:#8B95A6;">Column G</span>
+          </div>
+          <div class="chart-wrap" style="height:240px;">
+            <canvas id="typeChart"></canvas>
+          </div>
+        </div>
+
+        <!-- How they heard -->
+        <div class="fade-up delay-3 rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;">
+          <div style="display:flex;align-items:center;margin-bottom:20px;">
+            <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">How They Found Us</h2>
+            <span style="margin-left:auto;font-size:11px;color:#8B95A6;">Column H</span>
+          </div>
+          <div class="chart-wrap" style="height:240px;">
+            <canvas id="sourceChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── ROW 3: Topics + Bar lists ── -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+        <!-- Topics Chart -->
+        <div class="fade-up delay-3 rounded-xl p-6 card-shadow lg:col-span-2" style="background:#FFFFFF;border:1px solid #E2E6ED;">
+          <div style="display:flex;align-items:center;margin-bottom:20px;">
+            <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">Topics of Interest</h2>
+            <span style="margin-left:auto;font-size:11px;color:#8B95A6;">Column I</span>
+          </div>
+          <div class="chart-wrap" style="height:280px;">
+            <canvas id="topicsChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Top topic leaderboard -->
+        <div class="fade-up delay-4 rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;">
+          <div style="display:flex;align-items:center;margin-bottom:20px;">
+            <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">Top Topics</h2>
+          </div>
+          <div id="topicsBars" class="flex flex-col" style="gap:10px;"></div>
+        </div>
+
+      </div>
+
+      <!-- ── ROW 5: Full data table ── -->
+      <div class="fade-up delay-6 rounded-xl card-shadow-md overflow-hidden" style="background:#FFFFFF;border:1px solid #E2E6ED;">
+        <div style="padding:16px 24px;border-bottom:1px solid #E2E6ED;display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;">
+          <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">All Registrations</h2>
+          <input id="searchInput" onkeyup="filterTable()" placeholder="Search participants…"
+            style="padding:7px 14px;background:#F8FAFC;border:1px solid #E2E6ED;border-radius:8px;color:#3D4A5C;font-size:13px;outline:none;width:220px;transition:border-color 0.15s,box-shadow 0.15s;"
+            onfocus="this.style.borderColor='#2563EB';this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.12)'"
+            onblur="this.style.borderColor='#E2E6ED';this.style.boxShadow='none'" />
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;" id="dataTable">
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /dashboard -->
+
+    <!-- ── RAFFLE PAGE ── -->
+    <div id="rafflePage" class="hidden">
+
+      <!-- Top info cards -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+        <!-- Eligible tickets -->
+        <div class="rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;text-align:center;">
+          <p style="font-size:11px;font-weight:600;color:#8B95A6;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;">Eligible Tickets</p>
+          <div id="raffleEligibleCount" style="font-family:'DM Mono',monospace;font-size:3rem;font-weight:500;color:#2563EB;letter-spacing:-0.02em;line-height:1;">—</div>
+          <p style="font-size:12px;color:#8B95A6;margin-top:6px;">tickets remaining in pool</p>
+        </div>
+
+        <!-- Past winners -->
+        <div class="rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <p style="font-size:11px;font-weight:600;color:#8B95A6;letter-spacing:0.06em;text-transform:uppercase;">Past Winners This Session</p>
+            <button onclick="resetRaffle()" style="font-size:12px;color:#DC2626;background:none;border:none;cursor:pointer;padding:2px 8px;border-radius:6px;font-family:'Inter',sans-serif;"
+              onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='none'">Reset</button>
+          </div>
+          <div id="pastWinnersList" style="max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+            <p style="font-size:13px;color:#8B95A6;text-align:center;padding:16px 0;">No winners yet — spin to start!</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Roulette Wheel -->
+      <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:32px;">
+        <div style="position:relative;display:inline-block;">
+          <!-- Pointer triangle at top — animated via JS spring physics -->
+          <svg id="wheelPointer" xmlns="http://www.w3.org/2000/svg" width="28" height="24" viewBox="0 0 28 24" style="position:absolute;top:-20px;left:50%;transform:translateX(-50%) rotate(0rad);transform-origin:50% 100%;z-index:10;filter:drop-shadow(0 2px 6px rgba(37,99,235,0.5));overflow:visible;"><polygon points="14,24 0,0 28,0" fill="#1D4ED8"/></svg>
+          <canvas id="wheelCanvas" width="440" height="440"></canvas>
+        </div>
+      </div>
+
+      <!-- Spin button -->
+      <div style="display:flex;justify-content:center;">
+        <button id="spinBtn" onclick="spinRaffle()"
+          style="display:flex;align-items:center;gap:10px;padding:14px 48px;background:#2563EB;color:#FFFFFF;border:none;border-radius:12px;font-size:1rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:background 0.15s,transform 0.1s;box-shadow:0 4px 12px rgba(37,99,235,0.3);"
+          onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'"
+          onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Spin
+        </button>
+      </div>
+
+    </div><!-- /rafflePage -->
+
+    <!-- ── WINNER OVERLAY ── -->
+    <div id="winnerOverlay" class="hidden" style="position:fixed;inset:0;background:rgba(240,242,245,0.96);z-index:100;display:none;align-items:center;justify-content:center;">
+      <div class="winner-card" style="background:#FFFFFF;border:1px solid #E2E6ED;border-radius:24px;padding:48px 56px;text-align:center;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.12);">
+        <div class="trophy-icon" style="font-size:3rem;margin-bottom:16px;">🏆</div>
+        <p style="font-size:13px;font-weight:600;color:#2563EB;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:20px;">Winner!</p>
+        <p style="font-size:12px;color:#8B95A6;margin-bottom:4px;font-weight:500;">Ticket Number</p>
+        <div id="winnerTicket" style="font-family:'DM Mono',monospace;font-size:1.75rem;font-weight:500;color:#2563EB;letter-spacing:-0.02em;margin-bottom:20px;"></div>
+        <div id="winnerName" style="font-family:'Inter',sans-serif;font-size:clamp(1.75rem,4vw,2.75rem);font-weight:700;color:#111827;letter-spacing:-0.03em;line-height:1.15;margin-bottom:32px;"></div>
+        <button onclick="spinAgain()"
+          style="width:100%;padding:13px;background:#2563EB;color:#FFFFFF;border:none;border-radius:10px;font-size:0.9375rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;margin-bottom:12px;transition:background 0.15s;"
+          onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'">Spin Again</button>
+        <button onclick="closeWinner()" style="background:none;border:none;color:#8B95A6;font-size:13px;font-family:'Inter',sans-serif;cursor:pointer;">Close</button>
+      </div>
+    </div>
+
+  </main>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const SHEET_ID  = '1G6MV0FMt0-WmcExBK68gnXswIIw8ik7RDTnW_FsZg5Q';
+const SHEET_GID = '353419103';
+const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+
+// Column indices (0-based) — adjust if your sheet differs
+const COL_DATE     = 1;  // Column B
+const COL_LOCATION = 2;  // Column C — event location
+const COL_NAME     = 3;  // Column D — full name
+const COL_TYPE     = 6;  // Column G — participant type
+const COL_SOURCE   = 7;  // Column H — how they heard
+const COL_TOPIC    = 8;  // Column I — topics wanted
+const COL_TICKET   = 9;  // Column J — ticket number
+
+// ── PALETTE ─────────────────────────────────────────────────────────────────
+const PALETTE = [
+  '#2563EB','#7C3AED','#0891B2','#059669','#D97706',
+  '#DC2626','#DB2777','#4F46E5','#65A30D','#0369A1',
+];
+
+function colorAt(i) { return PALETTE[i % PALETTE.length]; }
+
+// ── CHART INSTANCES ──────────────────────────────────────────────────────────
+let charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ── CHART DEFAULTS ───────────────────────────────────────────────────────────
+Chart.defaults.color = '#8B95A6';
+Chart.defaults.font.family = 'Inter';
+Chart.defaults.font.size = 12;
+
+// ── CSV PARSER ───────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuote) {
+      if (ch === '"' && text[i+1] === '"') { field += '"'; i++; }
+      else if (ch === '"') inQuote = false;
+      else field += ch;
+    } else {
+      if (ch === '"') inQuote = true;
+      else if (ch === ',') { row.push(field.trim()); field = ''; }
+      else if (ch === '\n') { row.push(field.trim()); rows.push(row); row = []; field = ''; }
+      else if (ch === '\r') {}
+      else field += ch;
+    }
+  }
+  if (field || row.length) { row.push(field.trim()); rows.push(row); }
+  return rows;
+}
+
+// ── SOCIAL MEDIA GROUPING ─────────────────────────────────────────────────────
+const SOCIAL_MEDIA_PLATFORMS = ['facebook', 'instagram', 'tiktok', 'twitter', 'x'];
+function normalizeSocialMedia(key) {
+  const lower = key.toLowerCase();
+  if (SOCIAL_MEDIA_PLATFORMS.some(p => lower.includes(p))) return 'Social Media (Facebook / Instagram / TikTok)';
+  return key;
+}
+
+// ── COUNT HELPER ─────────────────────────────────────────────────────────────
+function countValues(rows, colIdx, normalize) {
+  const map = {};
+  rows.forEach(r => {
+    const raw = (r[colIdx] || '').trim();
+    if (!raw) return;
+    // Normalize first, then deduplicate within this row so one person
+    // who listed "Facebook, Instagram" counts as 1, not 2.
+    const seen = new Set();
+    raw.split(/[,;]+/).forEach(v => {
+      const key = normalize ? normalize(v.trim()) : v.trim();
+      if (key && !seen.has(key)) { seen.add(key); map[key] = (map[key] || 0) + 1; }
+    });
+  });
+  return Object.entries(map).sort((a, b) => b[1] - a[1]);
+}
+
+// ── DATE GROUPING ─────────────────────────────────────────────────────────────
+function groupByDate(rows, colIdx) {
+  const map = {};
+  rows.forEach(r => {
+    const raw = (r[colIdx] || '').trim();
+    if (!raw) return;
+    const d = new Date(raw);
+    if (isNaN(d)) return;
+    const key = d.toISOString().slice(0, 10);
+    map[key] = (map[key] || 0) + 1;
+  });
+  const sorted = Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  return sorted;
+}
+
+// ── DONUT CHART ───────────────────────────────────────────────────────────────
+function drawDonut(id, entries) {
+  destroyChart(id);
+  const labels = entries.map(e => e[0]);
+  const data   = entries.map(e => e[1]);
+  const colors = labels.map((_, i) => colorAt(i));
+
+  charts[id] = new Chart(document.getElementById(id), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#FFFFFF', borderWidth: 3, hoverOffset: 6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: '#3D4A5C', boxWidth: 10, boxHeight: 10, padding: 14, font: { size: 12 } }
+        },
+        tooltip: {
+          backgroundColor: '#FFFFFF',
+          borderColor: '#E2E6ED',
+          borderWidth: 1,
+          titleColor: '#111827',
+          bodyColor: '#3D4A5C',
+          callbacks: {
+            label: ctx => ` ${ctx.parsed} (${Math.round(ctx.parsed / data.reduce((a,b)=>a+b,0) * 100)}%)`
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── HORIZONTAL BAR CHART ──────────────────────────────────────────────────────
+function drawHBar(id, entries) {
+  destroyChart(id);
+  const labels = entries.map(e => truncate(e[0], 30));
+  const data   = entries.map(e => e[1]);
+
+  charts[id] = new Chart(document.getElementById(id), {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: entries.map((_,i) => colorAt(i) + 'cc'), borderRadius: 4, barThickness: 16 }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#FFFFFF', borderColor: '#E2E6ED', borderWidth: 1,
+          titleColor: '#111827', bodyColor: '#3D4A5C'
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#8B95A6' } },
+        y: { grid: { display: false }, ticks: { color: '#3D4A5C', font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// ── LINE / AREA CHART ─────────────────────────────────────────────────────────
+function drawLine(id, entries) {
+  destroyChart(id);
+  if (!entries.length) return;
+  const labels = entries.map(e => e[0]);
+  const data   = entries.map(e => e[1]);
+
+  charts[id] = new Chart(document.getElementById(id), {
+    type: 'line',
+    data: { labels, datasets: [{
+      data, borderColor: '#2563EB', borderWidth: 2,
+      pointBackgroundColor: '#2563EB', pointRadius: 4, pointHoverRadius: 6,
+      fill: true,
+      backgroundColor: (ctx) => {
+        const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
+        g.addColorStop(0, 'rgba(37,99,235,0.15)');
+        g.addColorStop(1, 'rgba(37,99,235,0)');
+        return g;
+      },
+      tension: 0.4
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#FFFFFF', borderColor: '#E2E6ED', borderWidth: 1,
+        titleColor: '#111827', bodyColor: '#3D4A5C'
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#8B95A6', maxTicksLimit: 8 } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#8B95A6', stepSize: 1 } }
+      }
+    }
+  });
+}
+
+// ── BAR LIST ──────────────────────────────────────────────────────────────────
+function drawBarList(containerId, entries, max) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  entries.slice(0, 8).forEach(([label, count], i) => {
+    const pct = Math.round((count / max) * 100);
+    const color = colorAt(i);
+    el.innerHTML += `
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <span style="font-size:12px;color:#3D4A5C;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${escHtml(truncate(label, 36))}</span>
+          <span style="font-size:12px;font-weight:600;color:${color};min-width:24px;text-align:right;">${count}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:0%;background:${color};" data-pct="${pct}"></div>
+        </div>
+      </div>`;
+  });
+  requestAnimationFrame(() => {
+    el.querySelectorAll('.bar-fill').forEach(b => { b.style.width = b.dataset.pct + '%'; });
+  });
+}
+
+// ── TABLE ─────────────────────────────────────────────────────────────────────
+let allRows = [], headers = [];
+function renderTable(rows) {
+  const thead = document.getElementById('tableHead');
+  const tbody = document.getElementById('tableBody');
+
+  if (!thead.innerHTML) {
+    thead.innerHTML = '<tr>' + headers.map(h =>
+      `<th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:600;color:#8B95A6;letter-spacing:0.05em;text-transform:uppercase;border-bottom:1px solid #E2E6ED;background:#F8FAFC;white-space:nowrap;">${escHtml(h)}</th>`
+    ).join('') + '</tr>';
+  }
+
+  tbody.innerHTML = rows.map((row, ri) => {
+    const cells = headers.map((_, ci) => {
+      const val = row[ci] || '';
+      return `<td style="padding:10px 16px;font-size:13px;color:#3D4A5C;border-bottom:1px solid #F1F5F9;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(val)}</td>`;
+    });
+    const bg = ri % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+    return `<tr style="background:${bg};">${cells.join('')}</tr>`;
+  }).join('');
+}
+
+// ── RENDER DASHBOARD (called on load + filter change) ─────────────────────────
+let activeRows = [];
+function renderDashboard(rows) {
+  activeRows = rows;
+  const total    = rows.length;
+  const typeData = countValues(rows, COL_TYPE);
+  const srcData  = countValues(rows, COL_SOURCE, normalizeSocialMedia);
+  const topData  = countValues(rows, COL_TOPIC);
+
+  document.getElementById('kpiTotal').textContent   = total;
+  document.getElementById('kpiTypes').textContent   = typeData.length;
+  document.getElementById('kpiTopics').textContent  = topData.length;
+  document.getElementById('kpiSources').textContent = srcData.length;
+
+  drawDonut('typeChart', typeData.slice(0, 10));
+  drawDonut('sourceChart', srcData.slice(0, 10));
+  drawHBar('topicsChart', topData.slice(0, 12));
+
+  const topMax = topData[0] ? topData[0][1] : 1;
+  drawBarList('topicsBars', topData, topMax);
+
+  document.getElementById('tableHead').innerHTML = '';
+  document.getElementById('searchInput').value = '';
+  renderTable(rows);
+}
+
+// ── LOCATION FILTER ───────────────────────────────────────────────────────────
+function applyLocationFilter() {
+  const loc = document.getElementById('locationFilter').value;
+  const filtered = loc ? allRows.filter(r => (r[COL_LOCATION] || '').trim() === loc) : allRows;
+  const countEl = document.getElementById('filterCount');
+  countEl.textContent = loc ? `${filtered.length} of ${allRows.length} participants` : '';
+  renderDashboard(filtered);
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = q ? activeRows.filter(r => r.some(c => c.toLowerCase().includes(q))) : activeRows;
+  renderTable(filtered);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── MAIN LOAD ─────────────────────────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('loadingState').classList.remove('hidden');
+  document.getElementById('errorState').classList.add('hidden');
+  document.getElementById('dashboard').classList.add('hidden');
+
+  try {
+    const res = await fetch(CSV_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const rows = parseCSV(text);
+
+    if (rows.length < 2) throw new Error('Sheet appears to be empty or has only headers.');
+
+    headers = rows[0];
+    allRows = rows.slice(1).filter(r => r.some(c => c.trim()));
+
+    // Populate location filter dropdown
+    const locations = [...new Set(allRows.map(r => (r[COL_LOCATION] || '').trim()).filter(Boolean))].sort();
+    const sel = document.getElementById('locationFilter');
+    sel.innerHTML = '<option value="">All Locations</option>';
+    locations.forEach(loc => {
+      const opt = document.createElement('option');
+      opt.value = loc; opt.textContent = loc;
+      sel.appendChild(opt);
+    });
+
+    renderDashboard(allRows);
+
+    // Status
+    setStatus('Live', true);
+    document.getElementById('lastUpdated').textContent =
+      'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('errorState').classList.remove('hidden');
+    document.getElementById('errorMsg').textContent =
+      err.message.includes('401') || err.message.includes('403')
+        ? 'Sheet is private. Go to Google Sheets → Share → "Anyone with the link" → Viewer, then refresh.'
+        : err.message;
+    setStatus('Error', false);
+  }
+}
+
+function setStatus(label, ok) {
+  const badge = document.getElementById('statusBadge');
+  const dot   = document.getElementById('statusDot');
+  const text  = document.getElementById('statusText');
+  text.textContent = label;
+  if (ok) {
+    badge.style.background   = '#F0FDF4';
+    badge.style.color        = '#16A34A';
+    badge.style.borderColor  = '#BBF7D0';
+    dot.style.background     = '#16A34A';
+  } else {
+    badge.style.background   = '#FEF2F2';
+    badge.style.color        = '#DC2626';
+    badge.style.borderColor  = '#FECACA';
+    dot.style.background     = '#DC2626';
+  }
+}
+
+// Auto-load on page open
+loadData();
+
+// ── PAGE NAVIGATION ───────────────────────────────────────────────────────────
+function showPage(page) {
+  const isDashboard = page === 'dashboard';
+  document.getElementById('dashboard').classList.toggle('hidden', !isDashboard);
+  document.getElementById('rafflePage').classList.toggle('hidden', isDashboard);
+  document.getElementById('tabDashboard').classList.toggle('active', isDashboard);
+  document.getElementById('tabRaffle').classList.toggle('active', !isDashboard);
+  if (!isDashboard) initRaffle();
+}
+
+// ── AUDIO ENGINE ─────────────────────────────────────────────────────────────
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTick(pitch = 900, vol = 0.25) {
+  try {
+    const ctx = getAudio();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'triangle';
+    osc.frequency.value = pitch;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.03);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.04);
+  } catch(e) {}
+}
+
+function playWinFanfare() {
+  try {
+    const ctx   = getAudio();
+    // Rising arpeggio: C E G C' + sustained chord
+    const notes = [
+      { freq: 523.25, t: 0.00, dur: 0.35 }, // C5
+      { freq: 659.25, t: 0.12, dur: 0.35 }, // E5
+      { freq: 783.99, t: 0.24, dur: 0.35 }, // G5
+      { freq: 1046.5, t: 0.36, dur: 0.7  }, // C6
+      // Harmony layer
+      { freq: 659.25, t: 0.36, dur: 0.7  }, // E5
+      { freq: 783.99, t: 0.36, dur: 0.7  }, // G5
+    ];
+    notes.forEach(({ freq, t, dur }) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const start = ctx.currentTime + t;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.22, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.start(start);
+      osc.stop(start + dur + 0.05);
+    });
+  } catch(e) {}
+}
+
+// ── RAFFLE STATE ──────────────────────────────────────────────────────────────
+let rafflePool        = [];
+let drawnWinners      = [];
+let isSpinning        = false;
+let wheelAngle        = 0;   // cumulative rotation in radians
+let pointerDeflection = 0;   // spring: current angle offset (radians)
+let pointerVel        = 0;   // spring: angular velocity
+
+// ── WHEEL DRAWING ─────────────────────────────────────────────────────────────
+function drawWheel(angle) {
+  const canvas = document.getElementById('wheelCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  // Scale for high-DPI / retina displays
+  const dpr = window.devicePixelRatio || 1;
+  const cssSize = 440;
+  if (canvas.width !== cssSize * dpr || canvas.height !== cssSize * dpr) {
+    canvas.width  = cssSize * dpr;
+    canvas.height = cssSize * dpr;
+    canvas.style.width  = cssSize + 'px';
+    canvas.style.height = cssSize + 'px';
+    ctx.scale(dpr, dpr);
+  }
+  const W = cssSize, H = cssSize;
+  const cx = W / 2, cy = H / 2;
+  const R = cx - 8;        // outer radius
+  const innerR = R * 0.14; // center hub radius
+  ctx.clearRect(0, 0, W, H);
+
+  const n = rafflePool.length;
+
+  if (n === 0) {
+    // Empty state
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+    ctx.fillStyle = '#F1F5F9'; ctx.fill();
+    ctx.strokeStyle = '#E2E6ED'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = '#8B95A6'; ctx.font = '500 15px Inter';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('No tickets', cx, cy);
+    return;
+  }
+
+  const segAngle = (2 * Math.PI) / n;
+
+  // ── Segments ──
+  for (let i = 0; i < n; i++) {
+    const startA = angle + i * segAngle;
+    const endA   = startA + segAngle;
+    const color  = colorAt(i);
+
+    // Fill segment
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, startA, endA);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // White divider
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Ticket number text
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(startA + segAngle / 2);
+    const textR = R * 0.68;
+    const fontSize = n <= 8 ? 13 : n <= 16 ? 11 : 9;
+    ctx.font = `600 ${fontSize}px Inter, sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 2;
+    const label = String(rafflePool[i].ticket).slice(0, 10);
+    ctx.fillText(label, textR, 0);
+    ctx.restore();
+  }
+
+  // ── Outer ring ──
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+  ctx.strokeStyle = '#1D4ED8'; ctx.lineWidth = 6; ctx.stroke();
+
+  // ── Inner ring accent ──
+  ctx.beginPath(); ctx.arc(cx, cy, R * 0.28, 0, 2 * Math.PI);
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // ── Center hub ──
+  ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerR);
+  grad.addColorStop(0, '#2563EB');
+  grad.addColorStop(1, '#1D4ED8');
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // Star in center
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `${Math.round(innerR * 1.1)}px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowBlur = 0;
+  ctx.fillText('★', cx, cy + 1);
+}
+
+function initRaffle() {
+  const drawnTickets = new Set(drawnWinners.map(w => w.ticket));
+  // Deduplicate by name — keep only the first ticket per unique participant
+  const seenNames = new Set();
+  rafflePool = allRows
+    .map(r => ({ ticket: (r[COL_TICKET] || '').trim(), name: (r[COL_NAME] || '').trim() }))
+    .filter(e => {
+      if (!e.ticket || drawnTickets.has(e.ticket)) return false;
+      const key = e.name.toLowerCase();
+      if (seenNames.has(key)) return false;
+      seenNames.add(key);
+      return true;
+    });
+
+  document.getElementById('raffleEligibleCount').textContent = rafflePool.length;
+  drawWheel(wheelAngle);
+
+  const btn = document.getElementById('spinBtn');
+  btn.disabled = rafflePool.length === 0;
+  btn.style.opacity = rafflePool.length === 0 ? '0.4' : '1';
+  btn.style.cursor  = rafflePool.length === 0 ? 'not-allowed' : 'pointer';
+}
+
+function spinRaffle() {
+  if (isSpinning || rafflePool.length === 0) return;
+  isSpinning = true;
+
+  const btn = document.getElementById('spinBtn');
+  btn.disabled = true; btn.style.opacity = '0.6';
+
+  // Pick winner
+  const winnerIdx = Math.floor(Math.random() * rafflePool.length);
+  const winner    = rafflePool[winnerIdx];
+  const n         = rafflePool.length;
+  const segAngle  = (2 * Math.PI) / n;
+
+  // Calculate target angle so winner segment midpoint lands at top pointer (-π/2)
+  const pointerAngle = -Math.PI / 2;
+  const midOffset    = winnerIdx * segAngle + segAngle / 2;
+  const baseTarget   = pointerAngle - midOffset;
+  const minTarget    = wheelAngle + 6 * 2 * Math.PI; // at least 6 full spins
+  const k            = Math.ceil((minTarget - baseTarget) / (2 * Math.PI));
+  const targetAngle  = baseTarget + k * 2 * Math.PI;
+
+  const startAngle = wheelAngle;
+  const duration   = 5000;
+  const startTime  = performance.now();
+  let   prevTime   = startTime;
+  let   lastTickAt = Math.floor(startAngle / segAngle) * segAngle;
+
+  // Spring constants for pointer physics
+  const SPRING_K  = 220;  // stiffness — how fast it snaps back
+  const DAMPING   = 16;   // friction — prevents endless oscillation
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
+  function speedAt(t)  { return 4 * Math.pow(1 - t, 3); } // derivative of easeOut
+
+  function animate(now) {
+    const dt = Math.min((now - prevTime) / 1000, 0.05); // seconds, capped at 50ms
+    prevTime = now;
+
+    const t    = Math.min((now - startTime) / duration, 1);
+    const prev = wheelAngle;
+    wheelAngle = startAngle + (targetAngle - startAngle) * easeOut(t);
+    drawWheel(wheelAngle);
+
+    // ── Segment crossing detection ──
+    const currSeg = Math.floor(wheelAngle / segAngle) * segAngle;
+    if (currSeg > lastTickAt) {
+      const crossings  = Math.round((currSeg - lastTickAt) / segAngle);
+      const speed      = speedAt(t);
+      const pitch      = 600 + speed * 600;
+      const vol        = 0.1 + speed * 0.2;
+      playTick(pitch, vol);
+
+      // Impulse to pointer: kick it in direction of spin, scaled by speed
+      const impulse = Math.min(speed * 7, 5);
+      pointerVel += impulse * crossings;
+      lastTickAt = currSeg;
+    }
+
+    // ── Pointer spring simulation ──
+    const springForce  = -SPRING_K * pointerDeflection;
+    const dampForce    = -DAMPING  * pointerVel;
+    pointerVel        += (springForce + dampForce) * dt;
+    pointerDeflection += pointerVel * dt;
+    pointerDeflection  = Math.max(-0.55, Math.min(0.55, pointerDeflection));
+
+    const ptr = document.getElementById('wheelPointer');
+    if (ptr) ptr.style.transform = `translateX(-50%) rotate(${pointerDeflection}rad)`;
+
+    if (t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      wheelAngle = targetAngle;
+      // Let spring settle back to centre
+      pointerDeflection = 0; pointerVel = 0;
+      if (ptr) ptr.style.transform = 'translateX(-50%) rotate(0rad)';
+
+      rafflePool.splice(winnerIdx, 1);
+      drawnWinners.push(winner);
+      updatePastWinners();
+      drawWheel(wheelAngle);
+      showWinner(winner);
+      isSpinning = false;
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function updatePastWinners() {
+  const list = document.getElementById('pastWinnersList');
+  if (drawnWinners.length === 0) {
+    list.innerHTML = '<p style="font-size:13px;color:#8B95A6;text-align:center;padding:16px 0;">No winners yet — spin to start!</p>';
+    return;
+  }
+  list.innerHTML = [...drawnWinners].reverse().map((w, i) =>
+    `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #F1F5F9;">
+      <span style="font-family:'DM Mono',monospace;font-size:12px;color:#2563EB;font-weight:500;min-width:60px;">${escHtml(w.ticket)}</span>
+      <span style="font-size:13px;color:#3D4A5C;font-weight:500;">${escHtml(w.name)}</span>
+    </div>`
+  ).join('');
+}
+
+function showWinner(winner) {
+  document.getElementById('winnerTicket').textContent = winner.ticket;
+  document.getElementById('winnerName').textContent   = winner.name;
+
+  const overlay = document.getElementById('winnerOverlay');
+  overlay.classList.remove('hidden');
+  overlay.style.display = 'flex';
+
+  // Sound + confetti together
+  setTimeout(() => { playWinFanfare(); fireConfetti(); }, 200);
+}
+
+function fireConfetti() {
+  confetti({ particleCount: 90, angle: 60,  spread: 60, origin: { x: 0,   y: 0.65 }, colors: ['#2563EB','#7C3AED','#059669','#D97706','#DB2777'] });
+  confetti({ particleCount: 90, angle: 120, spread: 60, origin: { x: 1,   y: 0.65 }, colors: ['#2563EB','#7C3AED','#059669','#D97706','#DB2777'] });
+  confetti({ particleCount: 50, angle: 90,  spread: 80, origin: { x: 0.5, y: 0.4  }, colors: ['#2563EB','#7C3AED','#059669','#D97706'] });
+}
+
+function closeWinner() {
+  const overlay = document.getElementById('winnerOverlay');
+  overlay.classList.add('hidden');
+  overlay.style.display = 'none';
+  initRaffle();
+}
+
+function spinAgain() {
+  closeWinner();
+  setTimeout(spinRaffle, 150);
+}
+
+function resetRaffle() {
+  drawnWinners = [];
+  wheelAngle = 0;
+  updatePastWinners();
+  initRaffle();
+}
+</script>
+</body>
+</html>
