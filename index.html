@@ -565,6 +565,7 @@ const PH_GEO = {
   'laoag':[18.1980,120.5935],'vigan':[17.5747,120.3869],
   'dagupan':[16.0433,120.3333],'san fernando la union':[16.6159,120.3166],
   // Cagayan Valley
+  'cagayan valley':[17.6131,121.7269],'region ii':[17.6131,121.7269],
   'tuguegarao':[17.6131,121.7269],'tuguegarao city':[17.6131,121.7269],'santiago':[16.6869,121.5500],
   // CAR
   'baguio':[16.4023,120.5960],'baguio city':[16.4023,120.5960],'la trinidad':[16.4608,120.5869],
@@ -1311,6 +1312,7 @@ async function loadEventDetails() {
       const place = (r[0] || '').trim();
       if (!place) return;
       eventDetails[place.toLowerCase()] = {
+        displayName: place,
         venue: (r[1] || '').trim(),
         time:  (r[2] || '').trim(),
         date:  (r[3] || '').trim(),
@@ -1318,7 +1320,7 @@ async function loadEventDetails() {
     });
     // Re-render markers if map is open so popups reflect updated details
     if (leafletMap && document.getElementById('mapPage').style.display !== 'none') {
-      renderMapMarkers(allRows);
+      renderMapMarkers(allRows, true);
     }
   } catch(e) { /* silently ignore */ }
 }
@@ -1358,16 +1360,16 @@ function initMap() {
     }).addTo(leafletMap);
   }
   setTimeout(() => { leafletMap.invalidateSize(); }, 50);
-  renderMapMarkers(allRows);
+  renderMapMarkers(allRows, true);
 }
 
 function applyMapFilter() {
   const loc = document.getElementById('mapLocationFilter').value;
   const filtered = loc ? allRows.filter(r => (r[COL_LOCATION] || '').trim() === loc) : allRows;
-  renderMapMarkers(filtered);
+  renderMapMarkers(filtered, !loc);
 }
 
-function renderMapMarkers(rows) {
+function renderMapMarkers(rows, showAllEventLocations = false) {
   if (!leafletMap) return;
   mapMarkers.forEach(m => leafletMap.removeLayer(m));
   mapMarkers = [];
@@ -1382,6 +1384,19 @@ function renderMapMarkers(rows) {
     locationMap[loc].count++;
     if (type) locationMap[loc].types[type] = (locationMap[loc].types[type] || 0) + 1;
   });
+
+  // When showing all locations, also include event detail locations with 0 registrations
+  if (showAllEventLocations) {
+    Object.entries(eventDetails).forEach(([key, ev]) => {
+      const displayName = ev.displayName || key;
+      const coords = geocodeLocation(displayName);
+      if (!coords) return;
+      const existingKey = Object.keys(locationMap).find(k => k.toLowerCase().trim() === key);
+      if (!existingKey) {
+        locationMap[displayName] = { count: 0, types: {}, coords };
+      }
+    });
+  }
 
   const unknown = [];
   const entries = Object.entries(locationMap).sort((a, b) => b[1].count - a[1].count);
@@ -1423,7 +1438,10 @@ function renderMapMarkers(rows) {
 
   renderMapLeaderboard(entries.filter(([,d]) => d.coords), maxCount);
 
-  if (mapMarkers.length > 1) {
+  if (showAllEventLocations) {
+    // Zoom out to show the whole Philippines
+    leafletMap.fitBounds([[4.5, 116.5], [21.5, 127.0]], { padding: [20, 20] });
+  } else if (mapMarkers.length > 1) {
     leafletMap.fitBounds(L.featureGroup(mapMarkers).getBounds().pad(0.15));
   } else if (mapMarkers.length === 1) {
     leafletMap.setView(mapMarkers[0].getLatLng(), 10);
