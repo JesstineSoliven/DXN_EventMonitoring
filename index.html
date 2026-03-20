@@ -34,6 +34,7 @@
 
   <style>
     * { box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
     body { background-color: #F0F2F5; font-family: 'Inter', system-ui, sans-serif; color: #3D4A5C; }
 
     .card-shadow   { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); }
@@ -59,7 +60,7 @@
 
     .stat-number {
       font-family: 'DM Mono', 'Inter', monospace;
-      font-size: clamp(2rem, 4vw, 3rem);
+      font-size: clamp(1.4rem, 2vw, 1.75rem);
       font-weight: 500;
       letter-spacing: -0.02em;
       line-height: 1;
@@ -112,8 +113,8 @@
 
     #wheelCanvas {
       display: block;
-      max-width: min(440px, 88vw);
-      height: auto;
+      width: min(560px, calc(100vh - 240px), 90vw);
+      height: min(560px, calc(100vh - 240px), 90vw);
       border-radius: 50%;
       box-shadow: 0 12px 40px rgba(0,0,0,0.14), 0 3px 10px rgba(0,0,0,0.08);
     }
@@ -131,7 +132,7 @@
           </svg>
         </div>
         <div>
-          <h1 style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.0625rem;color:#111827;letter-spacing:-0.01em;">Participant Monitor</h1>
+          <h1 style="font-family:'Inter',sans-serif;font-weight:700;font-size:1.0625rem;color:#111827;letter-spacing:-0.01em;">CG Event Monitoring</h1>
           <p style="font-size:11px;color:#8B95A6;margin-top:1px;">Live event insights dashboard</p>
         </div>
       </div>
@@ -158,16 +159,16 @@
   </header>
 
   <!-- ── MAIN ── -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style="height:calc(100vh - 60px);overflow:hidden;display:flex;flex-direction:column;padding-top:12px;padding-bottom:12px;">
 
     <!-- Loading state -->
-    <div id="loadingState" class="flex flex-col items-center justify-center py-32 gap-4">
+    <div id="loadingState" class="flex flex-col items-center justify-center gap-4" style="flex:1;">
       <div class="loading-spinner"></div>
       <p style="color:#8B95A6;font-size:14px;">Fetching participant data…</p>
     </div>
 
     <!-- Error state -->
-    <div id="errorState" class="hidden flex flex-col items-center justify-center py-32 gap-4">
+    <div id="errorState" class="hidden flex flex-col items-center justify-center gap-4" style="flex:1;">
       <div style="width:56px;height:56px;background:#FEF2F2;border-radius:16px;display:flex;align-items:center;justify-content:center;">
         <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#DC2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
@@ -179,10 +180,10 @@
     </div>
 
     <!-- Dashboard content -->
-    <div id="dashboard" class="hidden">
+    <div id="dashboard" class="hidden" style="height:100%;display:flex;flex-direction:column;overflow:hidden;gap:10px;">
 
       <!-- ── FILTER BAR ── -->
-      <div class="flex items-center gap-3 mb-6 flex-wrap">
+      <div class="flex items-center gap-3 flex-wrap" style="flex-shrink:0;">
         <div style="display:flex;align-items:center;gap:8px;">
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8B95A6" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
           <span style="font-size:13px;font-weight:500;color:#3D4A5C;">Filter by Location</span>
@@ -197,116 +198,100 @@
       </div>
 
       <!-- ── KPI ROW ── -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" style="flex-shrink:0;">
 
-        <div id="kpi0" class="fade-up delay-1 p-5" style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #2563EB;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <span style="font-size:11px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Total Registrations</span>
-            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <div id="kpi0" class="fade-up delay-1" style="padding:10px 14px;background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #2563EB;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:10px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Total Registrations</span>
+            <div style="width:26px;height:26px;background:#F1F5F9;border-radius:7px;display:flex;align-items:center;justify-content:center;">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
           </div>
           <div class="stat-number" id="kpiTotal">—</div>
-          <div style="margin-top:6px;font-size:12px;color:#8B95A6;">participants registered</div>
+          <div style="margin-top:3px;font-size:11px;color:#8B95A6;">participants registered</div>
         </div>
 
-        <div id="kpi1" class="fade-up delay-2 p-5" style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #7C3AED;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <span style="font-size:11px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Participant Types</span>
-            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <div id="kpi1" class="fade-up delay-2" style="padding:10px 14px;background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #7C3AED;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:10px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Participant Types</span>
+            <div style="width:26px;height:26px;background:#F1F5F9;border-radius:7px;display:flex;align-items:center;justify-content:center;">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             </div>
           </div>
           <div class="stat-number" id="kpiTypes">—</div>
-          <div style="margin-top:6px;font-size:12px;color:#8B95A6;">unique categories</div>
+          <div style="margin-top:3px;font-size:11px;color:#8B95A6;">unique categories</div>
         </div>
 
-        <div id="kpi2" class="fade-up delay-3 p-5" style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #0891B2;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <span style="font-size:11px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Topics Requested</span>
-            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <div id="kpi2" class="fade-up delay-3" style="padding:10px 14px;background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #0891B2;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:10px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Topics Requested</span>
+            <div style="width:26px;height:26px;background:#F1F5F9;border-radius:7px;display:flex;align-items:center;justify-content:center;">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             </div>
           </div>
           <div class="stat-number" id="kpiTopics">—</div>
-          <div style="margin-top:6px;font-size:12px;color:#8B95A6;">unique topic interests</div>
+          <div style="margin-top:3px;font-size:11px;color:#8B95A6;">unique topic interests</div>
         </div>
 
-        <div id="kpi3" class="fade-up delay-4 p-5" style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #059669;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <span style="font-size:11px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Discovery Sources</span>
-            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <div id="kpi3" class="fade-up delay-4" style="padding:10px 14px;background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #059669;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:10px;color:#8B95A6;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Discovery Sources</span>
+            <div style="width:26px;height:26px;background:#F1F5F9;border-radius:7px;display:flex;align-items:center;justify-content:center;">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
           </div>
           <div class="stat-number" id="kpiSources">—</div>
-          <div style="margin-top:6px;font-size:12px;color:#8B95A6;">referral channels</div>
+          <div style="margin-top:3px;font-size:11px;color:#8B95A6;">referral channels</div>
         </div>
 
       </div>
 
-      <!-- ── ROW 2: Type + Discovery ── -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- ── CHARTS ROW ── -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3" style="flex-shrink:0;">
 
         <!-- Participant Types -->
-        <div class="fade-up delay-2 rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;">
-          <div style="display:flex;align-items:center;margin-bottom:20px;">
-            <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">Type of Participants</h2>
-            <span style="margin-left:auto;font-size:11px;color:#8B95A6;">Column G</span>
+        <div class="fade-up delay-2 rounded-xl card-shadow" style="padding:12px 14px;background:#FFFFFF;border:1px solid #E2E6ED;">
+          <div style="display:flex;align-items:center;margin-bottom:10px;">
+            <h2 style="font-weight:600;font-size:0.8125rem;color:#111827;letter-spacing:-0.01em;">Type of Participants</h2>
+            <span style="margin-left:auto;font-size:10px;color:#8B95A6;">Col G</span>
           </div>
-          <div class="chart-wrap" style="height:240px;">
+          <div class="chart-wrap" style="height:200px;">
             <canvas id="typeChart"></canvas>
           </div>
         </div>
 
         <!-- How they heard -->
-        <div class="fade-up delay-3 rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;">
-          <div style="display:flex;align-items:center;margin-bottom:20px;">
-            <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">How They Found Us</h2>
-            <span style="margin-left:auto;font-size:11px;color:#8B95A6;">Column H</span>
+        <div class="fade-up delay-3 rounded-xl card-shadow" style="padding:12px 14px;background:#FFFFFF;border:1px solid #E2E6ED;">
+          <div style="display:flex;align-items:center;margin-bottom:10px;">
+            <h2 style="font-weight:600;font-size:0.8125rem;color:#111827;letter-spacing:-0.01em;">How They Found Us</h2>
+            <span style="margin-left:auto;font-size:10px;color:#8B95A6;">Col H</span>
           </div>
-          <div class="chart-wrap" style="height:240px;">
+          <div class="chart-wrap" style="height:200px;">
             <canvas id="sourceChart"></canvas>
           </div>
         </div>
 
-      </div>
-
-      <!-- ── ROW 3: Topics + Bar lists ── -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-        <!-- Topics Chart -->
-        <div class="fade-up delay-3 rounded-xl p-6 card-shadow lg:col-span-2" style="background:#FFFFFF;border:1px solid #E2E6ED;">
-          <div style="display:flex;align-items:center;margin-bottom:20px;">
-            <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">Topics of Interest</h2>
-            <span style="margin-left:auto;font-size:11px;color:#8B95A6;">Column I</span>
+<!-- Top topic leaderboard -->
+        <div class="fade-up delay-4 rounded-xl card-shadow" style="padding:12px 14px;background:#FFFFFF;border:1px solid #E2E6ED;">
+          <div style="display:flex;align-items:center;margin-bottom:10px;">
+            <h2 style="font-weight:600;font-size:0.8125rem;color:#111827;letter-spacing:-0.01em;">Top Topics</h2>
           </div>
-          <div class="chart-wrap" style="height:280px;">
-            <canvas id="topicsChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Top topic leaderboard -->
-        <div class="fade-up delay-4 rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;">
-          <div style="display:flex;align-items:center;margin-bottom:20px;">
-            <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">Top Topics</h2>
-          </div>
-          <div id="topicsBars" class="flex flex-col" style="gap:10px;"></div>
+          <div id="topicsBars" class="flex flex-col" style="gap:7px;overflow:hidden;"></div>
         </div>
 
       </div>
 
-      <!-- ── ROW 5: Full data table ── -->
-      <div class="fade-up delay-6 rounded-xl card-shadow-md overflow-hidden" style="background:#FFFFFF;border:1px solid #E2E6ED;">
-        <div style="padding:16px 24px;border-bottom:1px solid #E2E6ED;display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;">
-          <h2 style="font-weight:600;font-size:0.9375rem;color:#111827;letter-spacing:-0.01em;">All Registrations</h2>
+      <!-- ── Full data table ── -->
+      <div class="fade-up delay-6 rounded-xl card-shadow-md" style="background:#FFFFFF;border:1px solid #E2E6ED;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:10px 16px;border-bottom:1px solid #E2E6ED;display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;flex-shrink:0;">
+          <h2 style="font-weight:600;font-size:0.875rem;color:#111827;letter-spacing:-0.01em;">All Registrations</h2>
           <input id="searchInput" onkeyup="filterTable()" placeholder="Search participants…"
-            style="padding:7px 14px;background:#F8FAFC;border:1px solid #E2E6ED;border-radius:8px;color:#3D4A5C;font-size:13px;outline:none;width:220px;transition:border-color 0.15s,box-shadow 0.15s;"
+            style="padding:6px 12px;background:#F8FAFC;border:1px solid #E2E6ED;border-radius:8px;color:#3D4A5C;font-size:12px;outline:none;width:200px;transition:border-color 0.15s,box-shadow 0.15s;"
             onfocus="this.style.borderColor='#2563EB';this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.12)'"
             onblur="this.style.borderColor='#E2E6ED';this.style.boxShadow='none'" />
         </div>
-        <div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;" id="dataTable">
+        <div style="overflow:auto;flex:1;min-height:0;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;" id="dataTable">
             <thead id="tableHead"></thead>
             <tbody id="tableBody"></tbody>
           </table>
@@ -316,10 +301,10 @@
     </div><!-- /dashboard -->
 
     <!-- ── RAFFLE PAGE ── -->
-    <div id="rafflePage" class="hidden">
+    <div id="rafflePage" style="flex:1;min-height:0;display:none;flex-direction:column;overflow:hidden;gap:10px;">
 
       <!-- Raffle location filter -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:8px;">
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8B95A6" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
           <span style="font-size:13px;font-weight:500;color:#3D4A5C;">Filter by Location</span>
@@ -333,48 +318,49 @@
         <span id="raffleFilterCount" style="font-size:12px;color:#8B95A6;"></span>
       </div>
 
-      <!-- Top info cards -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <!-- Two-column layout: left cards | right wheel -->
+      <div style="flex:1;display:flex;gap:14px;min-height:0;">
 
-        <!-- Eligible tickets -->
-        <div class="rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;text-align:center;">
-          <p style="font-size:11px;font-weight:600;color:#8B95A6;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;">Eligible Tickets</p>
-          <div id="raffleEligibleCount" style="font-family:'DM Mono',monospace;font-size:3rem;font-weight:500;color:#2563EB;letter-spacing:-0.02em;line-height:1;">—</div>
-          <p style="font-size:12px;color:#8B95A6;margin-top:6px;">tickets remaining in pool</p>
-        </div>
+        <!-- LEFT: info cards -->
+        <div style="width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;min-height:0;">
 
-        <!-- Past winners -->
-        <div class="rounded-xl p-6 card-shadow" style="background:#FFFFFF;border:1px solid #E2E6ED;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <p style="font-size:11px;font-weight:600;color:#8B95A6;letter-spacing:0.06em;text-transform:uppercase;">Past Winners This Session</p>
-            <button onclick="resetRaffle()" style="font-size:12px;color:#DC2626;background:none;border:none;cursor:pointer;padding:2px 8px;border-radius:6px;font-family:'Inter',sans-serif;"
-              onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='none'">Reset</button>
+          <!-- Eligible tickets -->
+          <div style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #2563EB;border-radius:12px;padding:20px 18px;text-align:center;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+            <p style="font-size:10px;font-weight:600;color:#8B95A6;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:10px;">Eligible Tickets</p>
+            <div id="raffleEligibleCount" style="font-family:'DM Mono',monospace;font-size:3.25rem;font-weight:500;color:#2563EB;letter-spacing:-0.02em;line-height:1;">—</div>
+            <p style="font-size:12px;color:#8B95A6;margin-top:8px;">tickets remaining in pool</p>
           </div>
-          <div id="pastWinnersList" style="max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
-            <p style="font-size:13px;color:#8B95A6;text-align:center;padding:16px 0;">No winners yet — spin to start!</p>
+
+          <!-- Past winners -->
+          <div style="background:#FFFFFF;border:1px solid #E2E6ED;border-radius:12px;padding:16px;flex:1;min-height:0;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;">
+              <p style="font-size:10px;font-weight:600;color:#8B95A6;letter-spacing:0.06em;text-transform:uppercase;">Past Winners</p>
+              <button onclick="resetRaffle()" style="font-size:12px;color:#DC2626;background:none;border:none;cursor:pointer;padding:2px 8px;border-radius:6px;font-family:'Inter',sans-serif;"
+                onmouseover="this.style.background='#FEF2F2'" onmouseout="this.style.background='none'">Reset</button>
+            </div>
+            <div id="pastWinnersList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+              <p style="font-size:13px;color:#8B95A6;text-align:center;padding:20px 0;">No winners yet — spin to start!</p>
+            </div>
           </div>
+
         </div>
 
-      </div>
-
-      <!-- Roulette Wheel -->
-      <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:32px;">
-        <div style="position:relative;display:inline-block;">
-          <!-- Pointer triangle at top — animated via JS spring physics -->
-          <svg id="wheelPointer" xmlns="http://www.w3.org/2000/svg" width="28" height="24" viewBox="0 0 28 24" style="position:absolute;top:-20px;left:50%;transform:translateX(-50%) rotate(0rad);transform-origin:50% 100%;z-index:10;filter:drop-shadow(0 2px 6px rgba(37,99,235,0.5));overflow:visible;"><polygon points="14,24 0,0 28,0" fill="#1D4ED8"/></svg>
-          <canvas id="wheelCanvas" width="440" height="440"></canvas>
+        <!-- RIGHT: wheel + spin button -->
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:0;">
+          <div style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+            <!-- Pointer triangle -->
+            <svg id="wheelPointer" xmlns="http://www.w3.org/2000/svg" width="32" height="28" viewBox="0 0 32 28" style="position:absolute;top:-22px;left:50%;transform:translateX(-50%) rotate(0rad);transform-origin:50% 100%;z-index:10;filter:drop-shadow(0 2px 8px rgba(37,99,235,0.55));overflow:visible;"><polygon points="16,28 0,0 32,0" fill="#1D4ED8"/></svg>
+            <canvas id="wheelCanvas" width="560" height="560"></canvas>
+          </div>
+          <button id="spinBtn" onclick="spinRaffle()"
+            style="display:flex;align-items:center;gap:10px;padding:14px 56px;background:#2563EB;color:#FFFFFF;border:none;border-radius:12px;font-size:1rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:background 0.15s,transform 0.1s;box-shadow:0 4px 16px rgba(37,99,235,0.35);flex-shrink:0;"
+            onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'"
+            onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Spin the Wheel
+          </button>
         </div>
-      </div>
 
-      <!-- Spin button -->
-      <div style="display:flex;justify-content:center;">
-        <button id="spinBtn" onclick="spinRaffle()"
-          style="display:flex;align-items:center;gap:10px;padding:14px 48px;background:#2563EB;color:#FFFFFF;border:none;border-radius:12px;font-size:1rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:background 0.15s,transform 0.1s;box-shadow:0 4px 12px rgba(37,99,235,0.3);"
-          onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'"
-          onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'">
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Spin
-        </button>
       </div>
 
     </div><!-- /rafflePage -->
@@ -505,8 +491,8 @@ function drawDonut(id, entries) {
       cutout: '68%',
       plugins: {
         legend: {
-          position: 'right',
-          labels: { color: '#3D4A5C', boxWidth: 10, boxHeight: 10, padding: 14, font: { size: 12 } }
+          position: 'bottom',
+          labels: { color: '#3D4A5C', boxWidth: 10, boxHeight: 10, padding: 10, font: { size: 11 } }
         },
         tooltip: {
           backgroundColor: '#FFFFFF',
@@ -679,7 +665,7 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 async function loadData() {
   document.getElementById('loadingState').classList.remove('hidden');
   document.getElementById('errorState').classList.add('hidden');
-  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('dashboard').style.display = 'none';
 
   try {
     const res = await fetch(CSV_URL);
@@ -719,7 +705,7 @@ async function loadData() {
       'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     document.getElementById('loadingState').classList.add('hidden');
-    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('dashboard').style.display = 'flex';
 
   } catch (err) {
     console.error(err);
@@ -757,8 +743,8 @@ loadData();
 // ── PAGE NAVIGATION ───────────────────────────────────────────────────────────
 function showPage(page) {
   const isDashboard = page === 'dashboard';
-  document.getElementById('dashboard').classList.toggle('hidden', !isDashboard);
-  document.getElementById('rafflePage').classList.toggle('hidden', isDashboard);
+  document.getElementById('dashboard').style.display = isDashboard ? 'flex' : 'none';
+  document.getElementById('rafflePage').style.display = isDashboard ? 'none' : 'flex';
   document.getElementById('tabDashboard').classList.toggle('active', isDashboard);
   document.getElementById('tabRaffle').classList.toggle('active', !isDashboard);
   if (!isDashboard) initRaffle();
@@ -830,12 +816,11 @@ function drawWheel(angle) {
   const ctx = canvas.getContext('2d');
   // Scale for high-DPI / retina displays
   const dpr = window.devicePixelRatio || 1;
-  const cssSize = 440;
-  if (canvas.width !== cssSize * dpr || canvas.height !== cssSize * dpr) {
-    canvas.width  = cssSize * dpr;
-    canvas.height = cssSize * dpr;
-    canvas.style.width  = cssSize + 'px';
-    canvas.style.height = cssSize + 'px';
+  const cssSize = Math.min(canvas.clientWidth, canvas.clientHeight) || 560;
+  const bufSize = Math.round(cssSize * dpr);
+  if (canvas.width !== bufSize || canvas.height !== bufSize) {
+    canvas.width  = bufSize;
+    canvas.height = bufSize;
     ctx.scale(dpr, dpr);
   }
   const W = cssSize, H = cssSize;
@@ -970,7 +955,7 @@ function spinRaffle() {
   const targetAngle  = baseTarget + k * 2 * Math.PI;
 
   const startAngle = wheelAngle;
-  const duration   = 5000;
+  const duration   = 8000;
   const startTime  = performance.now();
   let   prevTime   = startTime;
   let   lastTickAt = Math.floor(startAngle / segAngle) * segAngle;
