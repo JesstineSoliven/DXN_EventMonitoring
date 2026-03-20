@@ -8,6 +8,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
   <script>
     tailwind.config = {
@@ -118,13 +120,97 @@
       border-radius: 50%;
       box-shadow: 0 12px 40px rgba(0,0,0,0.14), 0 3px 10px rgba(0,0,0,0.08);
     }
+
+    /* ── MAP PAGE ── */
+    #mapContainer { width: 100%; height: 100%; }
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px !important;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06) !important;
+      border: 1px solid #E2E6ED !important;
+      padding: 0 !important;
+      font-family: 'Inter', sans-serif !important;
+    }
+    .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+    .leaflet-popup-tip { background: #FFFFFF !important; }
+    .leaflet-popup-close-button { color: #8B95A6 !important; font-size: 16px !important; padding: 6px 8px !important; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    html, body { overflow-x: hidden; overflow-y: auto !important; height: auto !important; }
+
+    /* Header: stack logo + status on first row, nav tabs on second row */
+    #headerInner {
+      height: auto !important;
+      flex-wrap: wrap;
+      padding-top: 10px !important;
+      padding-bottom: 0 !important;
+      row-gap: 0;
+    }
+    #headerNav {
+      order: 3;
+      width: 100%;
+      border-top: 1px solid #E2E6ED;
+      height: 42px !important;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    #headerNav::-webkit-scrollbar { display: none; }
+    #headerRight { gap: 6px !important; }
+    #lastUpdated { display: none; }
+
+    /* Main: allow scrolling, remove fixed height */
+    #mainContent {
+      height: auto !important;
+      overflow: visible !important;
+      min-height: calc(100vh - 100px);
+    }
+
+    /* Dashboard: allow full scroll */
+    #dashboard {
+      height: auto !important;
+      overflow: visible !important;
+    }
+
+    /* Charts row: single column on mobile */
+    .charts-row { grid-template-columns: 1fr !important; }
+
+    /* Table: constrain search, keep horizontal scroll */
+    #searchInput { width: 120px !important; }
+
+    /* Raffle page: stack vertically */
+    #rafflePage { overflow: visible !important; height: auto !important; }
+    #raffleLayout { flex-direction: column !important; overflow-y: visible !important; }
+    #raffleLeft { width: 100% !important; flex-direction: row !important; flex-wrap: wrap; gap: 10px !important; }
+    #raffleLeft > div:first-child { flex: 1; min-width: 140px; }
+    #raffleLeft > div:last-child  { flex: 2; min-width: 200px; min-height: 160px; }
+    #raffleRight { min-height: 360px; }
+
+    /* Map page: stack vertically */
+    #mapPage { overflow: visible !important; min-height: 600px !important; }
+    #mapLayout { flex-direction: column !important; height: auto !important; min-height: 0 !important; }
+    #mapLayout > div:first-child { min-height: 320px !important; height: 320px !important; flex: none !important; }
+    #mapSidebar { width: 100% !important; height: auto !important; min-height: 0 !important; flex-direction: column !important; }
+    #mapLeaderboard { max-height: 160px; overflow-y: auto; }
+
+    /* Wheel: shrink on small screens */
+    #wheelCanvas {
+      width: min(340px, 85vw) !important;
+      height: min(340px, 85vw) !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .stat-number { font-size: 1.3rem !important; }
+    #winnerName  { font-size: 1.75rem !important; }
+  }
   </style>
 </head>
 <body class="min-h-screen text-text bg-base">
 
   <!-- ── HEADER ── -->
   <header style="background:#FFFFFF;border-bottom:1px solid #E2E6ED;position:sticky;top:0;z-index:50;">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between" style="height:60px;">
+    <div id="headerInner" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between" style="height:60px;">
       <div class="flex items-center gap-3">
         <div style="width:36px;height:36px;background:linear-gradient(135deg,#2563EB,#1D4ED8);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
           <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#FFFFFF" stroke-width="2.5">
@@ -137,11 +223,12 @@
         </div>
       </div>
       <!-- ── PAGE TABS ── -->
-      <nav style="display:flex;align-items:stretch;gap:2px;height:100%;">
+      <nav id="headerNav" style="display:flex;align-items:stretch;gap:2px;height:100%;">
         <button class="tab-btn active" id="tabDashboard" onclick="showPage('dashboard')">Dashboard</button>
         <button class="tab-btn" id="tabRaffle" onclick="showPage('raffle')">Raffle</button>
+        <button class="tab-btn" id="tabMap" onclick="showPage('map')">Map</button>
       </nav>
-      <div class="flex items-center gap-3">
+      <div id="headerRight" class="flex items-center gap-3">
         <div id="statusBadge" class="badge" style="background:#F0FDF4;color:#16A34A;border:1px solid #BBF7D0;">
           <span id="statusDot" style="width:6px;height:6px;border-radius:50%;background:#16A34A;animation:status-blink 3s ease-in-out infinite;display:inline-block;"></span>
           <span id="statusText">Loading…</span>
@@ -159,7 +246,7 @@
   </header>
 
   <!-- ── MAIN ── -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style="height:calc(100vh - 60px);overflow:hidden;display:flex;flex-direction:column;padding-top:12px;padding-bottom:12px;">
+  <main id="mainContent" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style="height:calc(100vh - 60px);overflow:hidden;display:flex;flex-direction:column;padding-top:12px;padding-bottom:12px;">
 
     <!-- Loading state -->
     <div id="loadingState" class="flex flex-col items-center justify-center gap-4" style="flex:1;">
@@ -247,7 +334,7 @@
       </div>
 
       <!-- ── CHARTS ROW ── -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3" style="flex-shrink:0;">
+      <div class="charts-row grid grid-cols-1 lg:grid-cols-3 gap-3" style="flex-shrink:0;">
 
         <!-- Participant Types -->
         <div class="fade-up delay-2 rounded-xl card-shadow" style="padding:12px 14px;background:#FFFFFF;border:1px solid #E2E6ED;">
@@ -319,10 +406,10 @@
       </div>
 
       <!-- Two-column layout: left cards | right wheel -->
-      <div style="flex:1;display:flex;gap:14px;min-height:0;">
+      <div id="raffleLayout" style="flex:1;display:flex;gap:14px;min-height:0;">
 
         <!-- LEFT: info cards -->
-        <div style="width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;min-height:0;">
+        <div id="raffleLeft" style="width:280px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;min-height:0;">
 
           <!-- Eligible tickets -->
           <div style="background:#FFFFFF;border:1px solid #E2E6ED;border-left:3px solid #2563EB;border-radius:12px;padding:20px 18px;text-align:center;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
@@ -346,7 +433,7 @@
         </div>
 
         <!-- RIGHT: wheel + spin button -->
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:0;">
+        <div id="raffleRight" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:0;">
           <div style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
             <!-- Pointer triangle -->
             <svg id="wheelPointer" xmlns="http://www.w3.org/2000/svg" width="32" height="28" viewBox="0 0 32 28" style="position:absolute;top:-22px;left:50%;transform:translateX(-50%) rotate(0rad);transform-origin:50% 100%;z-index:10;filter:drop-shadow(0 2px 8px rgba(37,99,235,0.55));overflow:visible;"><polygon points="16,28 0,0 32,0" fill="#1D4ED8"/></svg>
@@ -364,6 +451,47 @@
       </div>
 
     </div><!-- /rafflePage -->
+
+    <!-- ── MAP PAGE ── -->
+    <div id="mapPage" style="flex:1;min-height:0;display:none;flex-direction:column;gap:10px;padding:0;overflow:hidden;">
+
+      <!-- Filter bar -->
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:4px 0;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8B95A6" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span style="font-size:13px;font-weight:500;color:#3D4A5C;">Event Distribution Map</span>
+        </div>
+        <select id="mapLocationFilter" onchange="applyMapFilter()"
+          style="padding:7px 32px 7px 12px;background:#FFFFFF;border:1px solid #E2E6ED;border-radius:8px;color:#3D4A5C;font-size:13px;font-family:'Inter',sans-serif;outline:none;cursor:pointer;appearance:none;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 24 24' stroke='%238B95A6' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 10px center;box-shadow:0 1px 2px rgba(0,0,0,0.04);"
+          onfocus="this.style.borderColor='#2563EB';this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.12)'"
+          onblur="this.style.borderColor='#E2E6ED';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
+          <option value="">All Locations</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:16px;margin-left:auto;">
+          <span id="mapStatLocations" style="font-size:12px;color:#8B95A6;"></span>
+          <span id="mapStatTotal"     style="font-size:12px;color:#8B95A6;"></span>
+        </div>
+      </div>
+
+      <!-- Map + sidebar -->
+      <div id="mapLayout" style="flex:1;min-height:0;display:flex;gap:10px;">
+
+        <!-- Map container -->
+        <div style="flex:1;min-height:0;position:relative;border-radius:12px;overflow:hidden;border:1px solid #E2E6ED;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <div id="mapContainer"></div>
+          <div id="mapUnknownBadge" style="display:none;position:absolute;bottom:12px;left:12px;z-index:1000;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:6px 12px;font-size:12px;color:#92400E;pointer-events:none;"></div>
+        </div>
+
+        <!-- Sidebar leaderboard -->
+        <div id="mapSidebar" style="width:220px;flex-shrink:0;background:#FFFFFF;border:1px solid #E2E6ED;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <h3 style="font-size:11px;font-weight:600;color:#8B95A6;letter-spacing:0.06em;text-transform:uppercase;flex-shrink:0;margin:0;">Locations Ranked</h3>
+          <div id="mapLeaderboard" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+
+      </div>
+    </div><!-- /mapPage -->
 
     <!-- ── WINNER OVERLAY ── -->
     <div id="winnerOverlay" class="hidden" style="position:fixed;inset:0;background:rgba(240,242,245,0.96);z-index:100;display:none;align-items:center;justify-content:center;">
@@ -388,6 +516,9 @@ const SHEET_ID  = '1G6MV0FMt0-WmcExBK68gnXswIIw8ik7RDTnW_FsZg5Q';
 const SHEET_GID = '353419103';
 const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
 
+const EVENTS_SHEET_ID = '1RzXUykkiSurRxG4Mq2z9sPRhTqBdkllysBVBr-hdxNw';
+const EVENTS_CSV_URL  = `https://docs.google.com/spreadsheets/d/${EVENTS_SHEET_ID}/export?format=csv&gid=0`;
+
 // Column indices (0-based) — adjust if your sheet differs
 const COL_DATE     = 1;  // Column B
 const COL_LOCATION = 2;  // Column C — event location
@@ -404,6 +535,77 @@ const PALETTE = [
 ];
 
 function colorAt(i) { return PALETTE[i % PALETTE.length]; }
+
+// ── PHILIPPINES GEO LOOKUP ───────────────────────────────────────────────────
+const PH_GEO = {
+  // Metro Manila / NCR
+  'manila':[14.5995,120.9842],'quezon city':[14.6760,121.0437],'makati':[14.5547,121.0244],
+  'taguig':[14.5243,121.0792],'pasig':[14.5764,121.0851],'mandaluyong':[14.5794,121.0359],
+  'marikina':[14.6507,121.1029],'caloocan':[14.6500,120.9667],'las pinas':[14.4453,120.9829],
+  'las piñas':[14.4453,120.9829],'muntinlupa':[14.4081,121.0415],'paranaque':[14.4793,121.0198],
+  'parañaque':[14.4793,121.0198],'malabon':[14.6625,120.9571],'navotas':[14.6667,120.9417],
+  'valenzuela':[14.7011,120.9830],'pasay':[14.5378,121.0014],'pateros':[14.5442,121.0681],
+  'san juan':[14.6000,121.0333],'bgc':[14.5492,121.0509],
+  'bonifacio global city':[14.5492,121.0509],'ortigas':[14.5862,121.0593],'alabang':[14.4200,121.0400],
+  // Central Luzon
+  'angeles':[15.1450,120.5887],'angeles city':[15.1450,120.5887],
+  'san fernando':[15.0289,120.6869],'san fernando pampanga':[15.0289,120.6869],
+  'olongapo':[14.8292,120.2828],'malolos':[14.8430,120.8120],'meycauayan':[14.7367,120.9603],
+  'cabanatuan':[15.4867,120.9676],'tarlac city':[15.4755,120.5960],'tarlac':[15.4755,120.5960],
+  // CALABARZON
+  'antipolo':[14.6286,121.1244],'batangas city':[13.7565,121.0583],'batangas':[13.7565,121.0583],
+  'lipa':[13.9411,121.1633],'lucena':[13.9333,121.6167],'cavite city':[14.4791,120.8990],
+  'bacoor':[14.4580,120.9344],'dasmarinas':[14.3294,120.9367],'dasmariñas':[14.3294,120.9367],
+  'imus':[14.4297,120.9367],'calamba':[14.2117,121.1653],'santa rosa':[14.3122,121.1114],
+  'binan':[14.3411,121.0803],'san pablo':[14.0683,121.3247],
+  // Bicol
+  'legazpi':[13.1391,123.7438],'legazpi city':[13.1391,123.7438],
+  'naga':[13.6192,123.1814],'naga city':[13.6192,123.1814],'sorsogon city':[12.9742,124.0058],
+  // Ilocos
+  'laoag':[18.1980,120.5935],'vigan':[17.5747,120.3869],
+  'dagupan':[16.0433,120.3333],'san fernando la union':[16.6159,120.3166],
+  // Cagayan Valley
+  'tuguegarao':[17.6131,121.7269],'tuguegarao city':[17.6131,121.7269],'santiago':[16.6869,121.5500],
+  // CAR
+  'baguio':[16.4023,120.5960],'baguio city':[16.4023,120.5960],'la trinidad':[16.4608,120.5869],
+  // Central Visayas
+  'cebu city':[10.3157,123.8854],'cebu':[10.3157,123.8854],
+  'lapu-lapu':[10.3103,123.9494],'lapu lapu':[10.3103,123.9494],
+  'mandaue':[10.3236,123.9223],'mandaue city':[10.3236,123.9223],
+  'talisay':[10.2447,123.8489],'talisay city':[10.2447,123.8489],
+  'bohol':[9.8500,124.1435],'tagbilaran':[9.6500,123.8500],'tagbilaran city':[9.6500,123.8500],
+  'dumaguete':[9.3068,123.3054],'dumaguete city':[9.3068,123.3054],
+  // Western Visayas
+  'iloilo city':[10.7202,122.5621],'iloilo':[10.7202,122.5621],
+  'bacolod':[10.6770,122.9570],'bacolod city':[10.6770,122.9570],
+  'roxas city':[11.5833,122.7500],'kalibo':[11.7094,122.3625],
+  // Eastern Visayas
+  'tacloban':[11.2543,125.0000],'tacloban city':[11.2543,125.0000],
+  'ormoc':[11.0064,124.6075],'ormoc city':[11.0064,124.6075],
+  // Davao Region
+  'davao city':[7.1907,125.4553],'davao':[7.1907,125.4553],
+  'digos':[6.7497,125.3572],'tagum':[7.4479,125.8078],'tagum city':[7.4479,125.8078],
+  // Northern Mindanao
+  'cagayan de oro':[8.4542,124.6319],'cdo':[8.4542,124.6319],
+  'iligan':[8.2300,124.2452],'iligan city':[8.2300,124.2452],'malaybalay':[8.1575,125.1278],
+  // SOCCSKSARGEN
+  'general santos':[6.1164,125.1716],'gensan':[6.1164,125.1716],
+  'koronadal':[6.5028,124.8461],'koronadal city':[6.5028,124.8461],
+  'cotabato city':[7.2236,124.2467],'cotabato':[7.2236,124.2467],
+  // Zamboanga
+  'zamboanga city':[6.9214,122.0790],'zamboanga':[6.9214,122.0790],
+  'dipolog':[8.5922,123.3417],'dipolog city':[8.5922,123.3417],'pagadian':[7.8278,123.4347],
+  // Caraga
+  'butuan':[8.9475,125.5406],'butuan city':[8.9475,125.5406],
+  'surigao':[9.7833,125.5000],'surigao city':[9.7833,125.5000],
+  // MIMAROPA
+  'puerto princesa':[9.7392,118.7353],'calapan':[13.4117,121.1803],
+};
+
+// ── MAP STATE ────────────────────────────────────────────────────────────────
+let leafletMap   = null;
+let mapMarkers   = [];
+let eventDetails = {}; // keyed by lowercase Place name → { venue, time, date }
 
 // ── CHART INSTANCES ──────────────────────────────────────────────────────────
 let charts = {};
@@ -696,8 +898,21 @@ async function loadData() {
         raffleSel.appendChild(opt);
       });
     }
+    const mapSel = document.getElementById('mapLocationFilter');
+    if (mapSel) {
+      mapSel.innerHTML = '<option value="">All Locations</option>';
+      locations.forEach(loc => {
+        const opt = document.createElement('option');
+        opt.value = loc; opt.textContent = loc;
+        mapSel.appendChild(opt);
+      });
+    }
 
+    loadEventDetails();  // fetch event details sheet in background
     renderDashboard(allRows);
+    if (leafletMap && document.getElementById('mapPage').style.display !== 'none') {
+      renderMapMarkers(allRows);
+    }
 
     // Status
     setStatus('Live', true);
@@ -742,12 +957,24 @@ loadData();
 
 // ── PAGE NAVIGATION ───────────────────────────────────────────────────────────
 function showPage(page) {
-  const isDashboard = page === 'dashboard';
-  document.getElementById('dashboard').style.display = isDashboard ? 'flex' : 'none';
-  document.getElementById('rafflePage').style.display = isDashboard ? 'none' : 'flex';
-  document.getElementById('tabDashboard').classList.toggle('active', isDashboard);
-  document.getElementById('tabRaffle').classList.toggle('active', !isDashboard);
-  if (!isDashboard) initRaffle();
+  document.getElementById('dashboard').style.display  = 'none';
+  document.getElementById('rafflePage').style.display = 'none';
+  document.getElementById('mapPage').style.display    = 'none';
+  document.getElementById('tabDashboard').classList.remove('active');
+  document.getElementById('tabRaffle').classList.remove('active');
+  document.getElementById('tabMap').classList.remove('active');
+  if (page === 'dashboard') {
+    document.getElementById('dashboard').style.display = 'flex';
+    document.getElementById('tabDashboard').classList.add('active');
+  } else if (page === 'raffle') {
+    document.getElementById('rafflePage').style.display = 'flex';
+    document.getElementById('tabRaffle').classList.add('active');
+    initRaffle();
+  } else if (page === 'map') {
+    document.getElementById('mapPage').style.display = 'flex';
+    document.getElementById('tabMap').classList.add('active');
+    initMap();
+  }
 }
 
 // ── AUDIO ENGINE ─────────────────────────────────────────────────────────────
@@ -1070,6 +1297,191 @@ function resetRaffle() {
   wheelAngle = 0;
   updatePastWinners();
   initRaffle();
+}
+
+// ── MAP FUNCTIONS ────────────────────────────────────────────────────────────
+
+async function loadEventDetails() {
+  try {
+    const res = await fetch(EVENTS_CSV_URL);
+    if (!res.ok) return;
+    const rows = parseCSV(await res.text());
+    eventDetails = {};
+    rows.slice(1).forEach(r => {
+      const place = (r[0] || '').trim();
+      if (!place) return;
+      eventDetails[place.toLowerCase()] = {
+        venue: (r[1] || '').trim(),
+        time:  (r[2] || '').trim(),
+        date:  (r[3] || '').trim(),
+      };
+    });
+    // Re-render markers if map is open so popups reflect updated details
+    if (leafletMap && document.getElementById('mapPage').style.display !== 'none') {
+      renderMapMarkers(allRows);
+    }
+  } catch(e) { /* silently ignore */ }
+}
+
+function getEventDetail(locName) {
+  const key = locName.toLowerCase().trim();
+  if (eventDetails[key]) return eventDetails[key];
+  // Partial match: event Place inside locName or locName inside Place
+  for (const k of Object.keys(eventDetails)) {
+    if (key.includes(k) || k.includes(key)) return eventDetails[k];
+  }
+  return null;
+}
+
+function geocodeLocation(rawName) {
+  if (!rawName) return null;
+  const key = rawName.toLowerCase().trim().replace(/\s+/g, ' ');
+  if (PH_GEO[key]) return PH_GEO[key];
+  // Partial match: longest key first to prefer specific matches
+  const sorted = Object.keys(PH_GEO).sort((a, b) => b.length - a.length);
+  for (const k of sorted) {
+    if (key.includes(k)) return PH_GEO[k];
+  }
+  return null;
+}
+
+function initMap() {
+  if (!leafletMap) {
+    leafletMap = L.map('mapContainer', {
+      center: [12.8797, 121.7740],
+      zoom: 6,
+      zoomControl: true,
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(leafletMap);
+  }
+  setTimeout(() => { leafletMap.invalidateSize(); }, 50);
+  renderMapMarkers(allRows);
+}
+
+function applyMapFilter() {
+  const loc = document.getElementById('mapLocationFilter').value;
+  const filtered = loc ? allRows.filter(r => (r[COL_LOCATION] || '').trim() === loc) : allRows;
+  renderMapMarkers(filtered);
+}
+
+function renderMapMarkers(rows) {
+  if (!leafletMap) return;
+  mapMarkers.forEach(m => leafletMap.removeLayer(m));
+  mapMarkers = [];
+
+  // Aggregate by location
+  const locationMap = {};
+  rows.forEach(r => {
+    const loc  = (r[COL_LOCATION] || '').trim();
+    const type = (r[COL_TYPE]     || '').trim();
+    if (!loc) return;
+    if (!locationMap[loc]) locationMap[loc] = { count: 0, types: {}, coords: geocodeLocation(loc) };
+    locationMap[loc].count++;
+    if (type) locationMap[loc].types[type] = (locationMap[loc].types[type] || 0) + 1;
+  });
+
+  const unknown = [];
+  const entries = Object.entries(locationMap).sort((a, b) => b[1].count - a[1].count);
+  const maxCount = entries[0]?.[1].count || 1;
+
+  entries.forEach(([locName, data], rank) => {
+    if (!data.coords) { unknown.push(locName); return; }
+    const [lat, lng] = data.coords;
+    const color = colorAt(rank);
+    const pinSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.925 0 0 4.925 0 11c0 8.25 11 19 11 19s11-10.75 11-19C22 4.925 17.075 0 11 0z" fill="${color}" stroke="#fff" stroke-width="1.5"/><circle cx="11" cy="11" r="4" fill="white"/></svg>`;
+    const icon = L.divIcon({
+      className: '',
+      html: pinSvg,
+      iconSize:   [22, 30],
+      iconAnchor: [11, 30],
+      popupAnchor:[0, -32],
+    });
+    const marker = L.marker([lat, lng], { icon })
+      .addTo(leafletMap)
+      .bindPopup(buildMapPopup(locName, data), { maxWidth: 300, autoClose: false, closeOnClick: false });
+    marker.on('mouseover', function() { this.openPopup(); });
+    marker.on('mouseout',  function() { this.closePopup(); });
+    mapMarkers.push(marker);
+  });
+
+  // Stats strip
+  const knownCount = entries.filter(([,d]) => d.coords).length;
+  document.getElementById('mapStatLocations').textContent = `${knownCount} location${knownCount !== 1 ? 's' : ''} mapped`;
+  document.getElementById('mapStatTotal').textContent     = `${rows.length} registration${rows.length !== 1 ? 's' : ''}`;
+
+  // Unknown badge
+  const badge = document.getElementById('mapUnknownBadge');
+  if (unknown.length > 0) {
+    badge.style.display = 'block';
+    badge.textContent = `${unknown.length} location${unknown.length > 1 ? 's' : ''} not mapped: ${unknown.slice(0,3).join(', ')}${unknown.length > 3 ? '…' : ''}`;
+  } else {
+    badge.style.display = 'none';
+  }
+
+  renderMapLeaderboard(entries.filter(([,d]) => d.coords), maxCount);
+
+  if (mapMarkers.length > 1) {
+    leafletMap.fitBounds(L.featureGroup(mapMarkers).getBounds().pad(0.15));
+  } else if (mapMarkers.length === 1) {
+    leafletMap.setView(mapMarkers[0].getLatLng(), 10);
+  }
+}
+
+function buildMapPopup(locName, data) {
+  const ev = getEventDetail(locName);
+  const evHtml = ev ? `
+    <div style="border-top:1px solid #F1F5F9;margin-top:10px;padding-top:10px;display:flex;flex-direction:column;gap:5px;">
+      ${ev.date ? `<div style="display:flex;align-items:center;gap:7px;"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span style="font-size:12px;color:#3D4A5C;">${escHtml(ev.date)}</span></div>` : ''}
+      ${ev.time ? `<div style="display:flex;align-items:center;gap:7px;"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:12px;color:#3D4A5C;">${escHtml(ev.time)}</span></div>` : ''}
+      ${ev.venue ? `<div style="display:flex;align-items:flex-start;gap:7px;"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#2563EB" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:12px;color:#3D4A5C;line-height:1.4;">${escHtml(ev.venue)}</span></div>` : ''}
+    </div>` : '';
+  const typeRows = Object.entries(data.types)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([t, n]) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-top:1px solid #F1F5F9;"><span style="font-size:11px;color:#8B95A6;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;">${escHtml(t)}</span><span style="font-size:11px;font-weight:600;color:#3D4A5C;">${n}</span></div>`).join('');
+  return `<div style="padding:14px 16px;min-width:210px;font-family:'Inter',sans-serif;">
+    <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#16A34A;flex-shrink:0;margin-top:4px;"></div>
+      <div><p style="font-weight:700;font-size:14px;color:#111827;margin:0 0 2px;">${escHtml(locName)}</p><p style="font-size:11px;color:#8B95A6;margin:0;">Event location</p></div>
+    </div>
+    <div style="background:#EFF6FF;border-radius:8px;padding:8px 12px;text-align:center;margin-bottom:${typeRows ? 8 : 0}px;">
+      <span style="font-family:'DM Mono',monospace;font-size:1.5rem;font-weight:500;color:#2563EB;">${data.count}</span>
+      <span style="font-size:11px;color:#3D4A5C;display:block;margin-top:1px;">registration${data.count !== 1 ? 's' : ''}</span>
+    </div>
+    ${typeRows ? `<p style="font-size:10px;font-weight:600;color:#8B95A6;letter-spacing:0.06em;text-transform:uppercase;margin:0 0 4px;">By Type</p>${typeRows}` : ''}
+    ${evHtml}
+  </div>`;
+}
+
+function renderMapLeaderboard(entries, maxCount) {
+  const el = document.getElementById('mapLeaderboard');
+  if (!el) return;
+  el.innerHTML = entries.slice(0, 12).map(([locName, data], i) => {
+    const pct   = Math.round((data.count / maxCount) * 100);
+    const color = colorAt(i);
+    return `<div style="cursor:pointer;" onclick="focusMapLocation(${JSON.stringify(locName)})">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+        <span style="font-size:11px;color:#3D4A5C;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px;">${escHtml(locName)}</span>
+        <span style="font-size:11px;font-weight:600;color:${color};flex-shrink:0;">${data.count}</span>
+      </div>
+      <div style="height:4px;background:#F1F5F9;border-radius:2px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function focusMapLocation(locName) {
+  const marker = mapMarkers.find(m => {
+    const c = m.getPopup()?.getContent() || '';
+    return c.includes(escHtml(locName));
+  });
+  if (marker) {
+    leafletMap.setView(marker.getLatLng(), 10, { animate: true });
+    marker.openPopup();
+  }
 }
 </script>
 </body>
