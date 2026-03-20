@@ -318,6 +318,21 @@
     <!-- ── RAFFLE PAGE ── -->
     <div id="rafflePage" class="hidden">
 
+      <!-- Raffle location filter -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8B95A6" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          <span style="font-size:13px;font-weight:500;color:#3D4A5C;">Filter by Location</span>
+        </div>
+        <select id="raffleLocationFilter" onchange="initRaffle()"
+          style="padding:7px 32px 7px 12px;background:#FFFFFF;border:1px solid #E2E6ED;border-radius:8px;color:#3D4A5C;font-size:13px;font-family:'Inter',sans-serif;outline:none;cursor:pointer;appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 24 24' stroke='%238B95A6' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 10px center;box-shadow:0 1px 2px rgba(0,0,0,0.04);transition:border-color 0.15s,box-shadow 0.15s;"
+          onfocus="this.style.borderColor='#2563EB';this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.12)'"
+          onblur="this.style.borderColor='#E2E6ED';this.style.boxShadow='0 1px 2px rgba(0,0,0,0.04)'">
+          <option value="">All Locations</option>
+        </select>
+        <span id="raffleFilterCount" style="font-size:12px;color:#8B95A6;"></span>
+      </div>
+
       <!-- Top info cards -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
@@ -677,7 +692,7 @@ async function loadData() {
     headers = rows[0];
     allRows = rows.slice(1).filter(r => r.some(c => c.trim()));
 
-    // Populate location filter dropdown
+    // Populate location filter dropdowns (dashboard + raffle)
     const locations = [...new Set(allRows.map(r => (r[COL_LOCATION] || '').trim()).filter(Boolean))].sort();
     const sel = document.getElementById('locationFilter');
     sel.innerHTML = '<option value="">All Locations</option>';
@@ -686,6 +701,15 @@ async function loadData() {
       opt.value = loc; opt.textContent = loc;
       sel.appendChild(opt);
     });
+    const raffleSel = document.getElementById('raffleLocationFilter');
+    if (raffleSel) {
+      raffleSel.innerHTML = '<option value="">All Locations</option>';
+      locations.forEach(loc => {
+        const opt = document.createElement('option');
+        opt.value = loc; opt.textContent = loc;
+        raffleSel.appendChild(opt);
+      });
+    }
 
     renderDashboard(allRows);
 
@@ -897,18 +921,24 @@ function drawWheel(angle) {
 
 function initRaffle() {
   const drawnTickets = new Set(drawnWinners.map(w => w.ticket));
-  // Deduplicate by name — keep only the first ticket per unique participant
-  const seenNames = new Set();
-  rafflePool = allRows
-    .map(r => ({ ticket: (r[COL_TICKET] || '').trim(), name: (r[COL_NAME] || '').trim() }))
-    .filter(e => {
-      if (!e.ticket || drawnTickets.has(e.ticket)) return false;
-      const key = e.name.toLowerCase();
-      if (seenNames.has(key)) return false;
-      seenNames.add(key);
-      return true;
-    });
+  const selectedLoc  = (document.getElementById('raffleLocationFilter')?.value || '').trim();
 
+  // Deduplicate by name — later rows overwrite earlier ones so the last ticket wins
+  // (participants re-submit to correct mistakes; newest entry is most accurate)
+  const byName = new Map();
+  allRows.forEach(r => {
+    const ticket = (r[COL_TICKET]   || '').trim();
+    const name   = (r[COL_NAME]     || '').trim();
+    const loc    = (r[COL_LOCATION] || '').trim();
+    if (!ticket || !name) return;
+    if (selectedLoc && loc !== selectedLoc) return;
+    byName.set(name.toLowerCase(), { ticket, name });
+  });
+
+  rafflePool = [...byName.values()].filter(e => !drawnTickets.has(e.ticket));
+
+  const countEl = document.getElementById('raffleFilterCount');
+  if (countEl) countEl.textContent = selectedLoc ? `from "${selectedLoc}"` : '';
   document.getElementById('raffleEligibleCount').textContent = rafflePool.length;
   drawWheel(wheelAngle);
 
