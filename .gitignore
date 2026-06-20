@@ -3,3 +3,7 @@ temporary screenshots/
 *.png
 *.jpg
 *.jpeg
+knowledge-base.json
+.claude/
+config.js
+config.json

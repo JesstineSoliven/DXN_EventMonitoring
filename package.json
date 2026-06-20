@@ -1,5 +1,6 @@
 {
   "devDependencies": {
+    "officeparser": "^7.2.1",
     "puppeteer": "^24.40.0"
   }
 }

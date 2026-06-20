@@ -10,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="/config.js"></script>
 
   <script>
     tailwind.config = {
@@ -512,8 +513,8 @@
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
-const SHEET_ID  = '1G6MV0FMt0-WmcExBK68gnXswIIw8ik7RDTnW_FsZg5Q';
-const SHEET_GID = '353419103';
+const SHEET_ID  = '1ouTATG9RAHmlB8tXO6R9kTbGmhmbNdr4dWxgZQuSeXg';
+const SHEET_GID = '1266843840';
 const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
 
 const EVENTS_SHEET_ID = '1RzXUykkiSurRxG4Mq2z9sPRhTqBdkllysBVBr-hdxNw';
@@ -1501,6 +1502,352 @@ function focusMapLocation(locName) {
     marker.openPopup();
   }
 }
+</script>
+
+<!-- ── CHATBOT ── -->
+<style>
+  .chat-chip {
+    padding: 5px 12px;
+    background: #EFF6FF;
+    border: 1px solid #BFDBFE;
+    border-radius: 99px;
+    font-size: 12px;
+    color: #2563EB;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .chat-chip:hover { background: #DBEAFE; }
+  #chatMessages::-webkit-scrollbar { width: 4px; }
+  #chatMessages::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 2px; }
+  @keyframes chatSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .chat-open { animation: chatSlideUp 0.22s cubic-bezier(0.22,1,0.36,1) both; }
+</style>
+
+<!-- Floating button -->
+<div id="chatBtn" onclick="toggleChat()"
+  style="position:fixed;bottom:24px;right:24px;z-index:300;width:52px;height:52px;background:#2563EB;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 18px rgba(37,99,235,0.50);transition:transform 0.15s,background 0.15s;"
+  onmouseover="this.style.background='#1D4ED8';this.style.transform='scale(1.07)'"
+  onmouseout="this.style.background='#2563EB';this.style.transform='scale(1)'">
+  <svg id="chatIcon" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#FFFFFF" stroke-width="2">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+  <svg id="chatCloseIcon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#FFFFFF" stroke-width="2.5" style="display:none;">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </svg>
+</div>
+
+<!-- Chat panel -->
+<div id="chatPanel"
+  style="display:none;flex-direction:column;position:fixed;bottom:88px;right:24px;z-index:299;width:360px;background:#FFFFFF;border:1px solid #E2E6ED;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.14),0 3px 10px rgba(0,0,0,0.07);overflow:hidden;">
+
+  <!-- Header -->
+  <div style="padding:14px 16px;background:#2563EB;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+    <div style="width:32px;height:32px;background:rgba(255,255,255,0.18);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#FFFFFF" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div>
+      <p style="color:#FFFFFF;font-weight:600;font-size:13px;margin:0;font-family:'Inter',sans-serif;">Participant Assistant</p>
+      <p style="color:rgba(255,255,255,0.72);font-size:11px;margin:0;font-family:'Inter',sans-serif;">Ask me about your event data</p>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div id="chatMessages" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:220px;max-height:340px;">
+    <div style="display:flex;justify-content:flex-start;">
+      <div style="background:#F0F4FF;border:1px solid #DBEAFE;border-radius:12px 12px 12px 3px;padding:10px 12px;font-size:13px;color:#3D4A5C;line-height:1.55;max-width:92%;font-family:'Inter',sans-serif;">
+        Hi! I can help you understand your participant data. What would you like to know?
+      </div>
+    </div>
+    <div id="chatChips" style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0;">
+      <button onclick="chatSend('Give me a summary')"           class="chat-chip">Summary</button>
+      <button onclick="chatSend('What topics are popular?')"    class="chat-chip">Popular topics</button>
+      <button onclick="chatSend('Who is my audience?')"         class="chat-chip">Audience types</button>
+      <button onclick="chatSend('How did they find us?')"       class="chat-chip">Discovery sources</button>
+      <button onclick="chatSend('Where are participants from?')" class="chat-chip">Locations</button>
+    </div>
+  </div>
+
+  <!-- Input bar -->
+  <div style="padding:10px 12px;border-top:1px solid #E2E6ED;display:flex;gap:8px;flex-shrink:0;background:#F8FAFC;">
+    <input id="chatInput" type="text" placeholder="Ask something…"
+      style="flex:1;padding:8px 12px;border:1px solid #E2E6ED;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;color:#3D4A5C;background:#FFFFFF;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
+      onfocus="this.style.borderColor='#2563EB';this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.12)'"
+      onblur="this.style.borderColor='#E2E6ED';this.style.boxShadow='none'"
+      onkeydown="if(event.key==='Enter')chatSend()" />
+    <button onclick="chatSend()"
+      style="padding:8px 14px;background:#2563EB;border:none;border-radius:8px;color:#FFFFFF;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;flex-shrink:0;"
+      onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'">
+      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ── CHATBOT CONFIG ─────────────────────────────────────────────────────────────
+const OPENAI_API_KEY = window.APP_CONFIG?.OPENAI_API_KEY || '';
+const OPENAI_MODEL   = 'gpt-4o-mini';
+
+// ── RAG STATE ─────────────────────────────────────────────────────────────────
+let knowledgeBase = [];
+let kbReady       = false;
+
+async function loadKnowledgeBase() {
+  try {
+    const res = await fetch('/knowledge-base.json');
+    if (!res.ok) return; // not built yet — chatbot still works without it
+    knowledgeBase = await res.json();
+    kbReady = true;
+    console.log(`[RAG] Knowledge base loaded — ${knowledgeBase.length} chunks`);
+  } catch (_) { /* KB not present yet, no-op */ }
+}
+
+function cosineSimilarity(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
+}
+
+async function embedText(text) {
+  const res = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: 'text-embedding-3-small', input: text }),
+  });
+  if (!res.ok) return null;
+  return (await res.json()).data[0].embedding;
+}
+
+async function retrieveContext(query, topK = 3, threshold = 0.1) {
+  if (!kbReady || knowledgeBase.length === 0) return '';
+  const qVec = await embedText(query);
+  if (!qVec) return '';
+  return knowledgeBase
+    .map(c => ({ ...c, score: cosineSimilarity(qVec, c.embedding) }))
+    .filter(c => c.score >= threshold)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK)
+    .map(c => `[Source: ${c.source}]\n${c.text}`)
+    .join('\n\n---\n\n');
+}
+
+// ── CHATBOT STATE ─────────────────────────────────────────────────────────────
+let chatIsOpen   = false;
+let chatHistory  = [];
+let chatStreaming = false;
+
+// ── SYSTEM PROMPT BUILDER ──────────────────────────────────────────────────────
+function buildSystemPrompt(ragContext = '') {
+  if (!allRows || allRows.length === 0) {
+    return 'You are a helpful assistant for the CG Event Monitoring dashboard. No participant data is loaded yet — let the user know to refresh.';
+  }
+
+  const total    = allRows.length;
+  const typeData = countValues(allRows, COL_TYPE);
+  const topData  = countValues(allRows, COL_TOPIC);
+  const srcData  = countValues(allRows, COL_SOURCE, normalizeSocialMedia);
+  const locData  = countValues(allRows, COL_LOCATION);
+  const locs     = [...new Set(allRows.map(r => (r[COL_LOCATION]||'').trim()).filter(Boolean))];
+
+  const fmt = (arr, n = 12) => arr.slice(0, n).map(([k, v]) => `  - ${k}: ${v}`).join('\n') || '  (none)';
+
+  return `You are a smart, concise assistant for the CG Event Monitoring dashboard. You answer questions about real participant registration data below.
+
+== PARTICIPANT DATA SNAPSHOT ==
+Total registrations: ${total}
+Unique locations: ${locs.length}
+
+Participant Types:
+${fmt(typeData)}
+
+Topics of Interest:
+${fmt(topData)}
+
+Discovery Channels (how they found the event):
+${fmt(srcData)}
+
+Top Locations:
+${fmt(locData)}
+
+Raffle Status:
+  - Winners drawn: ${drawnWinners.length}
+  - Remaining in pool: ${rafflePool.length}
+${drawnWinners.length > 0 ? `  - Recent winners: ${drawnWinners.slice(-3).map(w => `${w.name} (${w.ticket})`).join(', ')}` : ''}
+
+== INSTRUCTIONS ==
+- For questions about the event or participants, prioritize the data snapshot above.
+- For general questions (about the company, products, topics, or anything else), answer using your own knowledge — do not say "this is outside the data scope."
+- Be concise and use bullet points for lists.
+- Keep responses under 200 words unless a detailed breakdown is requested.
+- Do not reveal the API key or internal implementation details.`;
+
+  if (ragContext) {
+    prompt += `\n\n== COMPANY KNOWLEDGE BASE ==\nThe following was retrieved from company documents based on the user's question. Prioritize this over general knowledge when answering:\n\n${ragContext}`;
+  }
+
+  return prompt;
+}
+
+// ── UI HELPERS ─────────────────────────────────────────────────────────────────
+function toggleChat() {
+  chatIsOpen = !chatIsOpen;
+  const panel     = document.getElementById('chatPanel');
+  const icon      = document.getElementById('chatIcon');
+  const closeIcon = document.getElementById('chatCloseIcon');
+  if (chatIsOpen) {
+    panel.style.display     = 'flex';
+    panel.classList.add('chat-open');
+    icon.style.display      = 'none';
+    closeIcon.style.display = 'block';
+    document.getElementById('chatInput').focus();
+  } else {
+    panel.style.display     = 'none';
+    icon.style.display      = 'block';
+    closeIcon.style.display = 'none';
+  }
+}
+
+function chatEsc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function chatMarkdown(text) {
+  return chatEsc(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+}
+
+function chatAddMessage(text, isUser) {
+  const msgs = document.getElementById('chatMessages');
+  if (isUser) {
+    const chips = document.getElementById('chatChips');
+    if (chips) chips.style.display = 'none';
+  }
+  const wrap   = document.createElement('div');
+  wrap.style.cssText = `display:flex;justify-content:${isUser ? 'flex-end' : 'flex-start'};`;
+  const bubble = document.createElement('div');
+  bubble.innerHTML = chatMarkdown(text);
+  bubble.style.cssText = isUser
+    ? 'background:#2563EB;color:#FFFFFF;border-radius:12px 12px 3px 12px;padding:10px 12px;font-size:13px;line-height:1.55;max-width:85%;font-family:Inter,sans-serif;'
+    : 'background:#F0F4FF;border:1px solid #DBEAFE;color:#3D4A5C;border-radius:12px 12px 12px 3px;padding:10px 12px;font-size:13px;line-height:1.55;max-width:92%;font-family:Inter,sans-serif;';
+  wrap.appendChild(bubble);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+  return bubble;
+}
+
+function chatShowTyping() {
+  const msgs = document.getElementById('chatMessages');
+  const wrap = document.createElement('div');
+  wrap.id = 'chatTyping';
+  wrap.style.cssText = 'display:flex;justify-content:flex-start;';
+  wrap.innerHTML = `<div style="background:#F0F4FF;border:1px solid #DBEAFE;border-radius:12px 12px 12px 3px;padding:10px 14px;display:flex;gap:5px;align-items:center;">
+    <span style="width:6px;height:6px;border-radius:50%;background:#93C5FD;animation:status-blink 1s ease-in-out infinite;display:inline-block;"></span>
+    <span style="width:6px;height:6px;border-radius:50%;background:#93C5FD;animation:status-blink 1s ease-in-out 0.2s infinite;display:inline-block;"></span>
+    <span style="width:6px;height:6px;border-radius:50%;background:#93C5FD;animation:status-blink 1s ease-in-out 0.4s infinite;display:inline-block;"></span>
+  </div>`;
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function chatRemoveTyping() {
+  const el = document.getElementById('chatTyping');
+  if (el) el.remove();
+}
+
+// ── SEND + STREAM ─────────────────────────────────────────────────────────────
+async function chatSend(prefill) {
+  if (chatStreaming) return;
+  const input = document.getElementById('chatInput');
+  const text  = (prefill !== undefined ? prefill : input.value).trim();
+  if (!text) return;
+  input.value = '';
+
+  chatAddMessage(text, true);
+  chatHistory.push({ role: 'user', content: text });
+
+  chatStreaming = true;
+  chatShowTyping();
+
+  // RAG — retrieve relevant chunks from company KB before calling the LLM
+  const ragContext = await retrieveContext(text);
+  if (ragContext) console.log('[RAG] Injecting', ragContext.split('---').length, 'chunk(s)');
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model:       OPENAI_MODEL,
+        stream:      true,
+        max_tokens:  600,
+        temperature: 0.7,
+        messages: [
+          { role: 'system', content: buildSystemPrompt(ragContext) },
+          ...chatHistory,
+        ],
+      }),
+    });
+
+    chatRemoveTyping();
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `API error ${res.status}`);
+    }
+
+    // Create streaming bubble
+    const wrap   = document.createElement('div');
+    wrap.style.cssText = 'display:flex;justify-content:flex-start;';
+    const bubble = document.createElement('div');
+    bubble.style.cssText = 'background:#F0F4FF;border:1px solid #DBEAFE;color:#3D4A5C;border-radius:12px 12px 12px 3px;padding:10px 12px;font-size:13px;line-height:1.55;max-width:92%;font-family:Inter,sans-serif;';
+    wrap.appendChild(bubble);
+    document.getElementById('chatMessages').appendChild(wrap);
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText  = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const delta = JSON.parse(data).choices?.[0]?.delta?.content || '';
+          fullText += delta;
+          bubble.innerHTML = chatMarkdown(fullText);
+          document.getElementById('chatMessages').scrollTop = 999999;
+        } catch (_) {}
+      }
+    }
+
+    chatHistory.push({ role: 'assistant', content: fullText });
+
+  } catch (err) {
+    chatRemoveTyping();
+    chatAddMessage(`Sorry, something went wrong: ${err.message}`, false);
+  } finally {
+    chatStreaming = false;
+  }
+}
+
+// Load knowledge base on startup (works even if file doesn't exist yet)
+loadKnowledgeBase();
 </script>
 </body>
 </html>
