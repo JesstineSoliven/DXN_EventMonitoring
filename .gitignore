@@ -3,6 +3,8 @@ temporary screenshots/
 *.png
 *.jpg
 *.jpeg
+!team-photo.jpg
+!tg_icon.png
 knowledge-base.json
 .claude/
 config.js
