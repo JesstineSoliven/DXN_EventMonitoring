@@ -10,7 +10,6 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="/config.js"></script>
 
   <script>
     tailwind.config = {
@@ -1627,8 +1626,9 @@ function focusMapLocation(locName) {
 
 <script>
 // ── CHATBOT CONFIG ─────────────────────────────────────────────────────────────
-const OPENAI_API_KEY = window.APP_CONFIG?.OPENAI_API_KEY || '';
-const OPENAI_MODEL   = 'gpt-4o-mini';
+// OpenAI calls go through /api/chat and /api/embeddings — the key lives
+// server-side only (Vercel env var in prod, config.json locally via serve.mjs).
+const OPENAI_MODEL = 'gpt-4o-mini';
 
 // ── RAG STATE ─────────────────────────────────────────────────────────────────
 let knowledgeBase = [];
@@ -1651,10 +1651,10 @@ function cosineSimilarity(a, b) {
 }
 
 async function embedText(text) {
-  const res = await fetch('https://api.openai.com/v1/embeddings', {
+  const res = await fetch('/api/embeddings', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: 'text-embedding-3-small', input: text }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input: text }),
   });
   if (!res.ok) return null;
   return (await res.json()).data[0].embedding;
@@ -1817,11 +1817,10 @@ async function chatSend(prefill) {
   if (ragContext) console.log('[RAG] Injecting', ragContext.split('---').length, 'chunk(s)');
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
         model:       OPENAI_MODEL,
