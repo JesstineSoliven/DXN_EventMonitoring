@@ -205,6 +205,40 @@
     .stat-number { font-size: 1.3rem !important; }
     #winnerName  { font-size: 1.75rem !important; }
   }
+
+  #coverBanner {
+    flex-shrink: 0;
+    height: 210px;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg,#2563EB,#1D4ED8);
+  }
+  #coverBanner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  #coverBanner .cover-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0));
+    display: flex;
+    align-items: flex-end;
+    padding: 12px 16px;
+  }
+  #coverBanner .cover-caption {
+    color: #FFFFFF;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  @media (max-width: 768px) {
+    #coverBanner { height: 80px; }
+  }
   </style>
 </head>
 <body class="min-h-screen text-text bg-base">
@@ -269,6 +303,12 @@
 
     <!-- Dashboard content -->
     <div id="dashboard" class="hidden" style="height:100%;display:flex;flex-direction:column;overflow:hidden;gap:10px;">
+
+      <!-- ── COVER BANNER ── -->
+      <div id="coverBanner">
+        <img src="team-photo.jpg" alt="Team photo" onerror="this.closest('#coverBanner').style.display='none'">
+        <div class="cover-overlay"><span class="cover-caption">CG Event Monitoring Team</span></div>
+      </div>
 
       <!-- ── FILTER BAR ── -->
       <div class="flex items-center gap-3 flex-wrap" style="flex-shrink:0;">
@@ -1533,9 +1573,7 @@ function focusMapLocation(locName) {
   style="position:fixed;bottom:24px;right:24px;z-index:300;width:52px;height:52px;background:#2563EB;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 18px rgba(37,99,235,0.50);transition:transform 0.15s,background 0.15s;"
   onmouseover="this.style.background='#1D4ED8';this.style.transform='scale(1.07)'"
   onmouseout="this.style.background='#2563EB';this.style.transform='scale(1)'">
-  <svg id="chatIcon" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#FFFFFF" stroke-width="2">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
+  <img id="chatIcon" src="tg_icon.png" alt="Chat-TG" style="width:44px;height:44px;border-radius:50%;object-fit:cover;display:block;">
   <svg id="chatCloseIcon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#FFFFFF" stroke-width="2.5" style="display:none;">
     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
   </svg>
@@ -1547,11 +1585,9 @@ function focusMapLocation(locName) {
 
   <!-- Header -->
   <div style="padding:14px 16px;background:#2563EB;display:flex;align-items:center;gap:10px;flex-shrink:0;">
-    <div style="width:32px;height:32px;background:rgba(255,255,255,0.18);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#FFFFFF" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    </div>
+    <img src="tg_icon.png" alt="Chat-TG" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">
     <div>
-      <p style="color:#FFFFFF;font-weight:600;font-size:13px;margin:0;font-family:'Inter',sans-serif;">Participant Assistant</p>
+      <p style="color:#FFFFFF;font-weight:600;font-size:13px;margin:0;font-family:'Inter',sans-serif;">Chat-TG</p>
       <p style="color:rgba(255,255,255,0.72);font-size:11px;margin:0;font-family:'Inter',sans-serif;">Ask me about your event data</p>
     </div>
   </div>
