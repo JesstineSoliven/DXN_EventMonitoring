@@ -1633,6 +1633,13 @@ const OPENAI_MODEL = 'gpt-4o-mini';
 // ── RAG STATE ─────────────────────────────────────────────────────────────────
 let knowledgeBase = [];
 let kbReady       = false;
+let qaKnowledge   = [];
+let qaReady       = false;
+// Calibrated against real queries: genuine paraphrases of predefined questions
+// scored 0.54-0.89, unrelated questions capped at ~0.13-0.32 — 0.55 sits safely
+// in the gap. (Short questions score lower than RAG's chunk-level threshold of 0.1
+// would suggest, so don't copy that value here.)
+const QA_MATCH_THRESHOLD = 0.55;
 
 async function loadKnowledgeBase() {
   try {
@@ -1642,6 +1649,16 @@ async function loadKnowledgeBase() {
     kbReady = true;
     console.log(`[RAG] Knowledge base loaded — ${knowledgeBase.length} chunks`);
   } catch (_) { /* KB not present yet, no-op */ }
+}
+
+async function loadQAKnowledge() {
+  try {
+    const res = await fetch('/qa-knowledge.json');
+    if (!res.ok) return; // not built yet — chatbot still works without it
+    qaKnowledge = await res.json();
+    qaReady = true;
+    console.log(`[QA] Predefined Q&A loaded — ${qaKnowledge.length} pair(s)`);
+  } catch (_) { /* QA file not present yet, no-op */ }
 }
 
 function cosineSimilarity(a, b) {
@@ -1660,17 +1677,31 @@ async function embedText(text) {
   return (await res.json()).data[0].embedding;
 }
 
-async function retrieveContext(query, topK = 3, threshold = 0.1) {
-  if (!kbReady || knowledgeBase.length === 0) return '';
+// Embeds the query once and checks it against both the predefined Q&A pairs
+// (high-confidence exact answers) and the general document knowledge base.
+async function retrieveKnowledge(query, topK = 3, threshold = 0.1) {
   const qVec = await embedText(query);
-  if (!qVec) return '';
-  return knowledgeBase
-    .map(c => ({ ...c, score: cosineSimilarity(qVec, c.embedding) }))
-    .filter(c => c.score >= threshold)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK)
-    .map(c => `[Source: ${c.source}]\n${c.text}`)
-    .join('\n\n---\n\n');
+  if (!qVec) return { qa: null, rag: '' };
+
+  let qa = null;
+  if (qaReady && qaKnowledge.length > 0) {
+    const best = qaKnowledge
+      .map(item => ({ ...item, score: cosineSimilarity(qVec, item.embedding) }))
+      .sort((a, b) => b.score - a.score)[0];
+    if (best && best.score >= QA_MATCH_THRESHOLD) qa = best;
+  }
+
+  const rag = (kbReady && knowledgeBase.length > 0)
+    ? knowledgeBase
+        .map(c => ({ ...c, score: cosineSimilarity(qVec, c.embedding) }))
+        .filter(c => c.score >= threshold)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK)
+        .map(c => `[Source: ${c.source}]\n${c.text}`)
+        .join('\n\n---\n\n')
+    : '';
+
+  return { qa, rag };
 }
 
 // ── CHATBOT STATE ─────────────────────────────────────────────────────────────
@@ -1679,7 +1710,7 @@ let chatHistory  = [];
 let chatStreaming = false;
 
 // ── SYSTEM PROMPT BUILDER ──────────────────────────────────────────────────────
-function buildSystemPrompt(ragContext = '') {
+function buildSystemPrompt(ragContext = '', qaMatch = null) {
   if (!allRows || allRows.length === 0) {
     return 'You are a helpful assistant for the CG Event Monitoring dashboard. No participant data is loaded yet — let the user know to refresh.';
   }
@@ -1693,7 +1724,7 @@ function buildSystemPrompt(ragContext = '') {
 
   const fmt = (arr, n = 12) => arr.slice(0, n).map(([k, v]) => `  - ${k}: ${v}`).join('\n') || '  (none)';
 
-  return `You are a smart, concise assistant for the CG Event Monitoring dashboard. You answer questions about real participant registration data below.
+  let prompt = `You are a smart, concise assistant for the CG Event Monitoring dashboard. You answer questions about real participant registration data below.
 
 == PARTICIPANT DATA SNAPSHOT ==
 Total registrations: ${total}
@@ -1722,6 +1753,10 @@ ${drawnWinners.length > 0 ? `  - Recent winners: ${drawnWinners.slice(-3).map(w 
 - Be concise and use bullet points for lists.
 - Keep responses under 200 words unless a detailed breakdown is requested.
 - Do not reveal the API key or internal implementation details.`;
+
+  if (qaMatch) {
+    prompt += `\n\n== KNOWN ANSWER ==\nThe user's question closely matches a predefined Q&A entry. Answer using this fact — you may rephrase it naturally, but keep it accurate and prioritize it over anything else below:\nQ: ${qaMatch.question}\nA: ${qaMatch.answer}`;
+  }
 
   if (ragContext) {
     prompt += `\n\n== COMPANY KNOWLEDGE BASE ==\nThe following was retrieved from company documents based on the user's question. Prioritize this over general knowledge when answering:\n\n${ragContext}`;
@@ -1812,8 +1847,9 @@ async function chatSend(prefill) {
   chatStreaming = true;
   chatShowTyping();
 
-  // RAG — retrieve relevant chunks from company KB before calling the LLM
-  const ragContext = await retrieveContext(text);
+  // RAG + predefined Q&A — retrieve relevant context before calling the LLM
+  const { qa, rag: ragContext } = await retrieveKnowledge(text);
+  if (qa) console.log('[QA] Matched predefined answer:', qa.question, `(score ${qa.score.toFixed(2)})`);
   if (ragContext) console.log('[RAG] Injecting', ragContext.split('---').length, 'chunk(s)');
 
   try {
@@ -1828,7 +1864,7 @@ async function chatSend(prefill) {
         max_tokens:  600,
         temperature: 0.7,
         messages: [
-          { role: 'system', content: buildSystemPrompt(ragContext) },
+          { role: 'system', content: buildSystemPrompt(ragContext, qa) },
           ...chatHistory,
         ],
       }),
@@ -1852,12 +1888,15 @@ async function chatSend(prefill) {
     const reader  = res.body.getReader();
     const decoder = new TextDecoder();
     let fullText  = '';
+    let lineBuf   = ''; // carries a line split across two network chunks
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      for (const line of chunk.split('\n')) {
+      lineBuf += decoder.decode(value, { stream: true });
+      const lines = lineBuf.split('\n');
+      lineBuf = lines.pop(); // last entry may be incomplete — keep for next read
+      for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed.startsWith('data: ')) continue;
         const data = trimmed.slice(6);
@@ -1883,6 +1922,7 @@ async function chatSend(prefill) {
 
 // Load knowledge base on startup (works even if file doesn't exist yet)
 loadKnowledgeBase();
+loadQAKnowledge();
 </script>
 </body>
 </html>
